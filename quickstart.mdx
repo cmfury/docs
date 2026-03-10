@@ -1,80 +1,40 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 快速上手
+description: 五步完成从登录到实时看盘的全流程
 ---
 
-## Get started in three steps
+## Step 1 — Discord 登录
 
-Get your documentation site running locally and make your first customization.
+点击首页"Discord 登录"，授权后自动跳转回平台。全程无需填写任何表单，Discord 是你在 Nightwatch 的身份。
 
-### Step 1: Set up your local environment
+如果登录失败，页面会显示具体原因（账号权限问题、授权超时等）。
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+## Step 2 — 开通订阅
 
-### Step 2: Deploy your changes
+未订阅时，进入订阅页，点击"开通订阅"跳转到 Whop 完成付款。付款成功后通常几分钟内自动同步——如果超过 5 分钟仍无法进入，刷新一次或重新登录即可。
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+如果你已有 Whop 订单但仍进不去，请确认 Whop 账号关联的是当前 Discord 账号。
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 3 — 选标的
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+进入 Dashboard 后，顶部下拉选择你想看的标的（默认 SPY）。换标的后等 1–2 秒，数据自动刷新。
 
-### Step 3: Go live
+## Step 4 — 选到期分组
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+顶部有 **0DTE / WEEKLY / MONTHLY** 三个分组。日内交易者通常从 **0DTE** 开始——它的 Gamma 最集中，信号最直接。
 
-## Next steps
+## Step 5 — 确认实时连接
 
-Now that you have your docs running, explore these key features:
+右上角显示 **LIVE** + 绿色脉冲点 = 数据实时更新中。灰色 = 连接短暂中断，平台会自动重连，通常 10–30 秒恢复。
 
-<CardGroup cols={2}>
+## 进来之后，先看这里
 
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
+连接确认之后，你会看到一堆数字和图表。不要被信息量淹没——**第一眼只需要找到三个东西**：
 
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
+1. **King Strike**（标有 ◆ 的行权价）：今日最重要的价格磁力点
+2. **Gamma Flip**（标有 FLIP 的虚线）：价格在它上方还是下方，决定今天的整体交易逻辑
+3. **Total GEX**（顶部卡片）：正值偏稳，负值偏动量
 
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
+其他所有内容——Major Positive/Negative、Call Wall、Active Call/Put——等你熟悉了这三个再逐步了解。
 
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+想看完整的使用方法论？→ [交易方法论](/trading-framework)
