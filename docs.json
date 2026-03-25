@@ -52,6 +52,7 @@
             "pages": [
               "volatility/overview",
               "volatility/iv-term-structure",
+              "volatility/iv-skew",
               "volatility/iv-rank",
               "volatility/rv-vs-iv",
               "volatility/tide"
