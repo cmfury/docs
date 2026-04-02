@@ -22,6 +22,15 @@
             "pages": ["introduction", "quickstart"]
           },
           {
+            "group": "基础教学",
+            "pages": [
+              "learn/dealer-positioning",
+              "learn/greeks-for-gex",
+              "learn/gamma-regimes",
+              "learn/node-lifecycle"
+            ]
+          },
+          {
             "group": "核心概念",
             "pages": [
               "concepts/what-is-gex",
