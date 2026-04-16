@@ -53,7 +53,8 @@
             "pages": [
               "dashboard/overview",
               "dashboard/structure-panel",
-              "dashboard/heatmap-panel"
+              "dashboard/heatmap-panel",
+              "dashboard/dealer-chart"
             ]
           },
           {
