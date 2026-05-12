@@ -1,0 +1,256 @@
+---
+title: 策略建仓
+sidebarTitle: 策略建仓
+description: 8 个内置模板（单腿、价差、铁鹰、铁蝶）+ 模板参数 + 用期权链辅助选 strike
+---
+
+## 这个页面给你什么
+
+Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一条腿一条腿配，选模板填几个参数（center strike / wing width / qty），系统自动生成正确的 strike 组合并按 scrub 时刻的 NBBO mid 锁定入场价。本页讲清每个模板长什么样、什么时候用、参数怎么调。
+
+<Note>
+  当前所有模板**只能用于 SPX 0DTE**。后续会扩展到 SPY / QQQ / 个股 + 1DTE / Weekly。
+</Note>
+
+## 入场流程
+
+<Steps>
+  <Step title="拖 scrub 到目标入场时刻">
+    比如 12:00 ET。注意：入场价用的是这一时刻每条腿的 NBBO **mid 中点**，不是 bid 也不是 ask。实盘里你大概率拿不到 mid，所以 Replay Lab 算出来的 P&L 是**理论上限**。
+  </Step>
+  <Step title="按 N 或点右栏 ＋ 新建策略">
+    打开「新建策略」浮层。也可以在 K 线上**右键**任意一根 K 线，会自动用那根 K 线的时间作为入场时间。
+    
+    <Warning>
+      时间滑块刚拖完仍处于聚焦状态时，按 N 会被滑块吃掉变成键盘细调。建议**先点一下空白处取消焦点**，或者直接点右栏的 ＋ 新建策略 按钮。
+    </Warning>
+  </Step>
+  <Step title="选模板 + 填参数">
+    在浮层里点想要的模板（铁鹰/铁蝶/单腿等）→ 调 CENTER / WIDTH / QTY 三个参数 → 看下方"持仓腿"预览自动更新。
+  </Step>
+  <Step title="点「创建策略」">
+    策略立即建仓，scrub 时刻的 NBBO mid 写入每条腿的 entryPrice，开始按时间轴跟踪 mark-to-market P&L。
+  </Step>
+</Steps>
+
+## 「新建策略」浮层
+
+<Frame>
+  <img src="/images/replay-lab/strategy-creator.png" alt="新建策略浮层：8 个模板按钮 + CENTER/WIDTH/QTY 参数 + Standard GEX 锚点快捷选 + 持仓腿预览" />
+</Frame>
+
+浮层从上到下：
+
+1. **入场时间 + spot**：取自当前 scrub 时刻
+2. **8 个模板按钮**（详见下方）
+3. **参数区**：CENTER / WIDTH / QTY 三个数字输入框
+4. **STANDARD GEX 锚点**：六个快捷按钮（King / Call Wall / Put Wall / Gamma Flip / Major Positive / Major Negative），点哪个就把 CENTER 设置成那个关键位
+5. **持仓腿预览**：根据当前模板 + 参数实时生成的腿位明细，可以单独编辑某条腿的 strike
+6. **「创建策略」按钮**：确认建仓
+
+### 三个参数
+
+| 参数 | 含义 | 用途 |
+|---|---|---|
+| **CENTER** | 中心 strike | 单腿 = 这条腿的 strike；价差 = 短腿 strike；铁鹰/铁蝶 = 中心对称轴 |
+| **WIDTH** | 翼宽（每侧的 strike 距离） | 单腿不用（隐藏）；价差/铁鹰/铁蝶 = 长腿距短腿多少（默认 5） |
+| **QTY** | 合约数 | 1 = 1 张铁鹰 = 4 个合约（每条腿 1 张）；2 = 双倍 |
+
+<Note>
+  SPX 期权按 5 美元增量挂牌（部分热门 strike 也有 1 美元和 2.5 美元），所以 WIDTH 通常用 5 / 10 / 25。WIDTH=3 这种会因为找不到挂牌的 strike 而拿不到 NBBO mid，建仓后会显示「等待报价」。
+</Note>
+
+### Standard GEX 锚点快捷
+
+不知道选哪个 strike 当 CENTER？六个按钮直接帮你定位结构关键位：
+
+| 按钮 | 锚定位置 |
+|---|---|
+| **King** | King Strike（单点 GEX 最大的 strike） |
+| **Call Wall** | Call Wall（最强的多头 GEX 阻力位） |
+| **Put Wall** | Put Wall（最强的空头 GEX 支撑位） |
+| **Gamma Flip** | Gamma Flip（正/负 GEX 切换点） |
+| **Major Positive** | 当前最大正 GEX strike |
+| **Major Negative** | 当前最大负 GEX strike |
+
+点哪个，CENTER 就跳到对应的 strike。详细概念见 [核心节点](/concepts/key-nodes)。
+
+## 8 个模板
+
+<Frame>
+  <img src="/images/replay-lab/strategy-creator-iron-condor.png" alt="选中铁鹰模板：4 条腿（卖 P-WIDTH/卖 C+WIDTH 加买 P-2×WIDTH/买 C+2×WIDTH）自动生成" />
+</Frame>
+
+### 单腿（debit / credit 单边方向）
+
+<CardGroup cols={2}>
+  <Card title="买入 Call (Long Call)">
+    1 条腿：买 Call @ CENTER。
+    
+    **何时用**：强烈看涨当日 + 愿意付 debit 赌方向。0DTE 长 Call 一旦 SPX 不涨过 breakeven，theta 会快速吃掉权利金。
+    
+    **风险**：max loss = 付出的权利金；max profit = 无限。
+    
+    **breakeven**：CENTER + entryPrice
+  </Card>
+  <Card title="买入 Put (Long Put)">
+    1 条腿：买 Put @ CENTER。
+    
+    **何时用**：强烈看跌当日 + 愿意付 debit 赌方向。
+    
+    **风险**：max loss = 付出的权利金；max profit = CENTER × 100（理论上 SPX 跌到 0）。
+    
+    **breakeven**：CENTER - entryPrice
+  </Card>
+  <Card title="卖出 Call (Short Call)">
+    1 条腿：卖 Call @ CENTER。**裸卖空，理论无限风险**。
+    
+    **何时用**：极度看空 + 想吃 theta（Call IV 通常较高）。但 0DTE 0DTE 裸卖 Call 是最高风险结构之一，**不推荐新手**。
+    
+    **风险**：max loss = 无限；max profit = 收到的 credit。
+    
+    **breakeven**：CENTER + creditPrice
+  </Card>
+  <Card title="卖出 Put (Short Put)">
+    1 条腿：卖 Put @ CENTER。裸卖空，下行风险高。
+    
+    **何时用**：愿意在 CENTER 价位"被指派"接货（实盘里）。
+    
+    **风险**：max loss = (CENTER - creditPrice) × 100；max profit = 收到的 credit。
+    
+    **breakeven**：CENTER - creditPrice
+  </Card>
+</CardGroup>
+
+### 双腿价差（垂直价差，limited risk + limited profit）
+
+<CardGroup cols={2}>
+  <Card title="牛市 Put 价差 (Bull Put Spread)">
+    2 条腿：卖 Put @ CENTER + 买 Put @ CENTER - WIDTH。**净 credit**。
+    
+    **何时用**：看不跌（中性偏多）+ 想吃 theta + 限制下行风险。
+    
+    **payoff 形状**：右上水平线（max profit = credit）→ 7415-7420 之间斜率 1 → 7415 以下水平（max loss）。
+    
+    **风险**：max loss = (WIDTH - credit) × 100；max profit = credit × 100。
+    
+    **breakeven**：CENTER - credit
+  </Card>
+  <Card title="熊市 Call 价差 (Bear Call Spread)">
+    2 条腿：卖 Call @ CENTER + 买 Call @ CENTER + WIDTH。**净 credit**。
+    
+    **何时用**：看不涨（中性偏空）+ 想吃 theta。
+    
+    **payoff 形状**：左下水平线（max profit = credit）→ 短长腿之间斜率 1 → 长腿以上水平（max loss）。
+    
+    **风险**：max loss = (WIDTH - credit) × 100；max profit = credit × 100。
+    
+    **breakeven**：CENTER + credit
+  </Card>
+</CardGroup>
+
+### 四腿中性结构（铁鹰 / 铁蝶）
+
+<CardGroup cols={2}>
+  <Card title="铁鹰 (Iron Condor)">
+    4 条腿：
+    - 卖 Put @ CENTER - WIDTH
+    - 买 Put @ CENTER - 2×WIDTH（保护下方）
+    - 卖 Call @ CENTER + WIDTH
+    - 买 Call @ CENTER + 2×WIDTH（保护上方）
+    
+    **何时用**：判断 SPX 当日震荡 + 不会突破短腿 strike → 收双边 credit。
+    
+    **payoff 形状**：**梯形**——短腿之间是平顶（max profit = 总 credit），两侧是斜线（短长腿之间）下到水平 max loss。
+    
+    **breakeven**：(CENTER - WIDTH - credit) 和 (CENTER + WIDTH + credit)
+  </Card>
+  <Card title="铁蝶 (Iron Butterfly)">
+    4 条腿：
+    - 卖 Put @ CENTER（同一 strike）
+    - 卖 Call @ CENTER（同一 strike）
+    - 买 Put @ CENTER - WIDTH（保护下方）
+    - 买 Call @ CENTER + WIDTH（保护上方）
+    
+    **何时用**：判断 SPX 当日**钉死在 CENTER 附近** → credit 比铁鹰高（收双边 ATM 权利金），但 max profit 只有一个尖点。
+    
+    **payoff 形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；任何偏离都立即开始亏损。
+    
+    **breakeven**：CENTER ± credit
+  </Card>
+</CardGroup>
+
+## 铁鹰 vs 铁蝶 怎么选
+
+这是新手最常问的问题之一。两者结构相似（都是 4 腿、净 credit、limited risk），区别在**短腿位置**：
+
+| | 铁鹰 | 铁蝶 |
+|---|---|---|
+| 短 Put 位置 | CENTER - WIDTH（OTM） | CENTER（ATM） |
+| 短 Call 位置 | CENTER + WIDTH（OTM） | CENTER（ATM） |
+| credit | 较小（OTM 权利金低） | **较大**（ATM 权利金高） |
+| max profit | = credit | = credit（更大） |
+| max profit 触发条件 | SPX 落在 [短 Put, 短 Call] 之间 = **平顶** | SPX 恰好落在 CENTER = **尖点** |
+| max loss | = WIDTH - credit | = WIDTH - credit（**更小**） |
+| 适用判断 | "SPX 会震荡但不知道会落在哪个具体价位" | "SPX 会**钉死在 CENTER 附近**" |
+
+直觉对比（看到期结构图）：
+
+<CardGroup cols={2}>
+  <Card title="铁鹰 - 平顶梯形">
+    <Frame>
+      <img src="/images/replay-lab/payoff-curve.png" alt="铁鹰到期结构：strikes 7415/7420/7430/7435，短腿 7420-7430 之间是平顶 max profit = +$270" />
+    </Frame>
+    平顶宽 = 2 × WIDTH。SPX 落在这一段任意位置都拿 max profit。
+  </Card>
+  <Card title="铁蝶 - 单尖三角">
+    <Frame>
+      <img src="/images/replay-lab/payoff-butterfly.png" alt="铁蝶到期结构：strikes 7420/7425/7425/7430，只有 7425 一个点是 max profit = +$370" />
+    </Frame>
+    只有 CENTER 一个点能拿满 max profit。偏离 1 美元就开始亏。
+  </Card>
+</CardGroup>
+
+**经验法则**：
+- 不确定方向 → **铁鹰**（容错区间宽）
+- 强烈认为会"钉点" → **铁蝶**（credit 高 + max loss 小）
+- 看 Standard GEX：**King Strike + 强 Call/Put Wall** 组合 → 倾向铁鹰（结构会把 SPX 框在两墙之间）；**单一极强 King Strike** → 倾向铁蝶（结构吸引 SPX 钉死该位置）
+
+## 持仓腿编辑
+
+模板生成的腿位**不是固定的**——「持仓腿」预览区每条腿的 strike 都可以单独改：
+
+- 直接在 strike 输入框里改数字 → 该腿用新 strike，但仍是模板生成的方向（买/卖）和 right（Call/Put）
+- 点「**从链选择**」按钮 → 打开期权链快照（详见 [期权链快照](/replay-lab/chain-snapshot)），点击想要的 strike 自动回填
+- 点「**选择 Center**」按钮 → 让所有腿基于该腿重新对齐（重算 CENTER）
+
+<Note>
+  改完一条腿的 strike 后，"持仓腿"预览不会自动重算其他腿的相对位置——比如你改了短 Put 7420 → 7418，长 Put 仍然在 7415，这就变成了非对称铁鹰（5-wide 翼 vs 3-wide 翼）。这种自定义结构 Replay Lab 完全支持，breakeven 和 max profit/loss 会按实际腿位重算。
+</Note>
+
+## 多策略并行
+
+同一个交易日可以**同时建多个策略**对比。建好后右栏会列出所有"进行中"的策略：
+
+- 点策略卡片切换查看（Result 面板会更新到该策略）
+- 每张卡片显示「入场时间 · cr/db 金额」便于对比
+- 卡片右侧 ✕ 删除该策略
+
+适用场景：
+- 同一时刻铁鹰 vs 铁蝶
+- 同一模板不同 WIDTH
+- 早进场 vs 晚进场（不同 entryAtMs）
+
+## 重要提示
+
+<Warning>
+  入场价用的是 NBBO **mid 中点**——你实盘做单大概率拿不到 mid（限价挂 mid 可能不成交，市价单成交在 ask 或 bid）。Replay Lab 的 P&L 系统性高估你能拿到的 credit，复盘时**关注走势形状和决策时机**，不要把数字当真实可达。
+</Warning>
+
+<Warning>
+  0DTE 期权 theta decay 在临近收盘前 1-2 小时会**急剧加速**——同样的策略 11:00 ET 建仓和 14:30 ET 建仓，剩余的 P&L 路径完全不同。Replay Lab 让你直观看到这一点：拖 scrub 越接近收盘，相同 SPX 移动幅度对各腿 mark 的影响越剧烈。
+</Warning>
+
+<Warning>
+  Replay Lab **不模拟 assignment / pin risk**——0DTE 收盘附近 SPX 钉在某个 strike 时，实盘短腿可能被指派。Replay Lab 只算到 16:00 ET 的 mark-to-market，不会模拟随之而来的股票头寸。
+</Warning>
