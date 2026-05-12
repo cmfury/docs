@@ -114,7 +114,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
   <Card title="卖出 Put (Short Put)">
     1 条腿：卖 Put @ CENTER。裸卖空，下行风险高。
     
-    **何时用**：愿意在 CENTER 价位"被指派"接货（实盘里）。
+    **何时用**：看不跌（中性偏多）+ 想吃 theta，能接受 SPX 跌破 CENTER 时按差额现金赔付（SPX 是现金结算，不会被指派接股票）。
     
     **风险**：max loss = (CENTER - credit) × 100；max profit = 收到的 credit。
     
@@ -252,5 +252,5 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 </Warning>
 
 <Warning>
-  Replay Lab **不模拟指派风险 (assignment / pin risk)**——0DTE 收盘附近 SPX 钉在某个 strike 时，实盘短腿可能被指派。Replay Lab 只算到 16:00 ET 的浮动 P&L，不会模拟随之而来的股票头寸。
+  SPX 期权是**欧式现金结算**——到期不会有股票交割，也没有提前指派的可能。但仍有**钉位 / 结算价风险 (pin risk)**：收盘最后几分钟 SPX 在短腿 strike 附近来回跳动时，结算价的 1-2 美元差距可能让短腿从盈利瞬间变成大额赔付。Replay Lab 只算到当日收盘的浮动 P&L，不会模拟收盘瞬间的结算价跳动。
 </Warning>
