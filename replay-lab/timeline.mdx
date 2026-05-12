@@ -6,7 +6,7 @@ description: 时间滑块、播放控件、日期选择器和键盘快捷键的�
 
 ## 这个页面给你什么
 
-时间轴是 Replay Lab 的"光标系统"——你把时间滑块拖到哪里，所有面板（K 线视窗、Dealer PULSE、Standard GEX 关键位、当前 P&L、持仓 mark）就同步显示**那一分钟的市场状态**。本页讲清楚怎么选日期、怎么操控时间轴、有哪些快捷键。
+时间轴是 Replay Lab 的"光标系统"——你把时间滑块拖到哪里，所有面板（K 线视窗、Dealer PULSE、Standard GEX 关键位、当前 P&L、持仓当前价）就同步显示**那一分钟的市场状态**。本页讲清楚怎么选日期、怎么操控时间轴、有哪些快捷键。
 
 <Note>
   当前仅支持 **SPX 0DTE** 的历史回放。后续版本会扩展到 SPY / QQQ / 个股，以及 1DTE / Weekly 到期分组。
@@ -16,7 +16,7 @@ description: 时间滑块、播放控件、日期选择器和键盘快捷键的�
 
 ### 90 天滚动窗口
 
-Replay Lab 默认能选**过去 90 天内**的任意 NYSE 交易日（不含当日）。点底部传输条左侧的 `2026-XX-XX ▾` 按钮打开日期选择器：
+Replay Lab 默认能选**过去 90 天内**的任意 NYSE 交易日（不含当日）。点底部控件栏左侧的 `2026-XX-XX ▾` 按钮打开日期选择器：
 
 <Frame>
   <img src="/images/replay-lab/date-picker.png" alt="日期选择器：列出 90 天内可用交易日，每条带 ✓ 标记表示三套数据齐全" />
@@ -43,10 +43,10 @@ Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨�
 ## 时间滑块
 
 <Frame>
-  <img src="/images/replay-lab/overview-with-strategy.png" alt="Replay Lab 整体界面，底部传输条含时间滑块" />
+  <img src="/images/replay-lab/overview-with-strategy.png" alt="Replay Lab 整体界面，底部控件栏含时间滑块" />
 </Frame>
 
-底部传输条最显眼的就是那条蓝色滑块。它的语义：
+底部控件栏最显眼的就是那条蓝色滑块。要点：
 
 - **左端 = 开盘时间**（常规日 09:30 ET，半日市同样 09:30 ET）
 - **右端 = 收盘时间**（常规日 16:00 ET，半日市 13:00 ET）
@@ -59,7 +59,7 @@ Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨�
 
 ### 鼠标拖动
 
-直接按住滑块的圆点拖左右就行。**拖动过程中**所有面板会跟着实时预览；**松开鼠标**才会写入策略的 mark-to-market 历史和实测区间。
+直接按住滑块的圆点拖左右就行。**拖动过程中**所有面板会跟着实时预览；**松开鼠标**才会写入策略的浮动 P&L 历史和实测区间。
 
 ### 点击轨道
 
@@ -133,8 +133,8 @@ Replay Lab 自动识别半日市：
 | Dealer PULSE | 显示当前时刻的最新 dealer GEX 快照对应的 PULSE 位置 |
 | Standard GEX 关键位 | 顶部 K/CW/PW/F 数字 + K 线右侧 Call Wall / Put Wall / Flip 水平线，全部同步到当前时刻 |
 | 顶部 SPX 现价 | 该 K 线的 close 价 + 与开盘价的涨跌 |
-| 当前盈亏 | 用当前时刻的每条腿 NBBO mid 重新算 mark-to-market P&L |
-| 持仓腿 mark | 每条腿的 mark 列同步更新 |
+| 当前盈亏 | 用当前时刻的每条腿期权报价中点重新算浮动 P&L |
+| 持仓腿当前价 | 每条腿的当前价列同步更新 |
 | 风险条实测区间 | 区间左右端会随时间游标推进**单调外扩**（即从入场到当前时刻 P&L 路径上的最高/最低） |
 
 <Note>
@@ -144,7 +144,7 @@ Replay Lab 自动识别半日市：
 ## 重要提示
 
 <Warning>
-  时间滑块的精度是 1 秒，但 K 线 / Dealer PULSE / Greeks 大部分数据是**每分钟**采样的。这意味着 12:30:30 和 12:30:00 看到的 K 线、PULSE、Greeks 是**同一份**——只有 SPX spot tick（1 秒级 tick）会有差别。
+  时间滑块的精度是 1 秒，但 K 线 / Dealer PULSE / Greeks 大部分数据是**每分钟**采样的。这意味着 12:30:30 和 12:30:00 看到的 K 线、PULSE、Greeks 是**同一份**——只有 SPX 现价（1 秒级更新）会有差别。
 </Warning>
 
 <Warning>

@@ -29,7 +29,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     在浮层里点想要的模板（铁鹰/铁蝶/单腿等）→ 调 CENTER / WIDTH / QTY 三个参数 → 看下方"持仓腿"预览自动更新。
   </Step>
   <Step title="点「创建策略」">
-    策略立即建仓，当前时刻每条腿的 NBBO mid 锁定为入场价，开始按时间轴跟踪 mark-to-market P&L。
+    策略立即建仓，当前时刻每条腿的市场报价中点锁定为入场价，开始按时间轴跟踪浮动 P&L。
   </Step>
 </Steps>
 
@@ -81,7 +81,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
   <img src="/images/replay-lab/strategy-creator-iron-condor.png" alt="选中铁鹰模板：4 条腿（卖 P-WIDTH/卖 C+WIDTH 加买 P-2×WIDTH/买 C+2×WIDTH）自动生成" />
 </Frame>
 
-### 单腿（debit / credit 单边方向）
+### 单腿（付钱 debit / 收钱 credit 单边方向）
 
 <CardGroup cols={2}>
   <Card title="买入 Call (Long Call)">
@@ -122,7 +122,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
   </Card>
 </CardGroup>
 
-### 双腿价差（垂直价差，limited risk + limited profit）
+### 双腿价差（垂直价差，风险有限 + 盈利有限）
 
 <CardGroup cols={2}>
   <Card title="牛市 Put 价差 (Bull Put Spread)">
@@ -130,7 +130,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：看不跌（中性偏多）+ 想吃 theta + 限制下行风险。
     
-    **payoff 形状**：右上水平线（max profit = credit）→ 7415-7420 之间斜率 1 → 7415 以下水平（max loss）。
+    **到期形状**：右上水平线（max profit = credit）→ 7415-7420 之间斜率 1 → 7415 以下水平（max loss）。
     
     **风险**：max loss = (WIDTH - credit) × 100；max profit = credit × 100。
     
@@ -141,7 +141,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：看不涨（中性偏空）+ 想吃 theta。
     
-    **payoff 形状**：左下水平线（max profit = credit）→ 短长腿之间斜率 1 → 长腿以上水平（max loss）。
+    **到期形状**：左下水平线（max profit = credit）→ 短长腿之间斜率 1 → 长腿以上水平（max loss）。
     
     **风险**：max loss = (WIDTH - credit) × 100；max profit = credit × 100。
     
@@ -161,7 +161,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：判断 SPX 当日震荡 + 不会突破短腿 strike → 收双边 credit。
     
-    **payoff 形状**：**梯形**——短腿之间是平顶（max profit = 总 credit），两侧是斜线（短长腿之间）下到水平 max loss。
+    **到期形状**：**梯形**——短腿之间是平顶（max profit = 总 credit），两侧是斜线（短长腿之间）下到水平 max loss。
     
     **breakeven**：(CENTER - WIDTH - credit) 和 (CENTER + WIDTH + credit)
   </Card>
@@ -174,7 +174,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：判断 SPX 当日**钉死在 CENTER 附近** → credit 比铁鹰高（收双边 ATM 权利金），但 max profit 只有一个尖点。
     
-    **payoff 形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；任何偏离都立即开始亏损。
+    **到期形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；任何偏离都立即开始亏损。
     
     **breakeven**：CENTER ± credit
   </Card>
@@ -182,7 +182,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 
 ## 铁鹰 vs 铁蝶 怎么选
 
-这是新手最常问的问题之一。两者结构相似（都是 4 腿、净 credit、limited risk），区别在**短腿位置**：
+这是新手最常问的问题之一。两者结构相似（都是 4 腿、净 credit、风险有限），区别在**短腿位置**：
 
 | | 铁鹰 | 铁蝶 |
 |---|---|---|
@@ -220,12 +220,12 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 
 模板生成的腿位**不是固定的**——「持仓腿」预览区每条腿的 strike 都可以单独改：
 
-- 直接在 strike 输入框里改数字 → 该腿用新 strike，但仍是模板生成的方向（买/卖）和 right（Call/Put）
+- 直接在 strike 输入框里改数字 → 该腿用新 strike，但仍是模板生成的方向（买/卖）和类型（Call/Put）
 - 点「**从链选择**」按钮 → 打开期权链快照，点击想要的 strike 自动回填
 - 点「**选择 Center**」按钮 → 让所有腿基于该腿重新对齐（重算 CENTER）
 
 <Note>
-  改完一条腿的 strike 后，"持仓腿"预览不会自动重算其他腿的相对位置——比如你改了短 Put 7420 → 7418，长 Put 仍然在 7415，这就变成了非对称铁鹰（5-wide 翼 vs 3-wide 翼）。这种自定义结构 Replay Lab 完全支持，breakeven 和 max profit/loss 会按实际腿位重算。
+  改完一条腿的 strike 后，"持仓腿"预览不会自动重算其他腿的相对位置——比如你改了短 Put 7420 → 7418，长 Put 仍然在 7415，这就变成了非对称铁鹰（一侧 5 美元宽、另一侧 3 美元宽）。这种自定义结构 Replay Lab 完全支持，breakeven 和 max profit/loss 会按实际腿位重算。
 </Note>
 
 ## 多策略并行
@@ -233,7 +233,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 同一个交易日可以**同时建多个策略**对比。建好后右栏会列出所有"进行中"的策略：
 
 - 点策略卡片切换查看（Result 面板会更新到该策略）
-- 每张卡片显示「入场时间 · cr/db 金额」便于对比
+- 每张卡片显示「入场时间 · 净 credit / debit 金额」便于对比
 - 卡片右侧 ✕ 删除该策略
 
 适用场景：
@@ -248,9 +248,9 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 </Warning>
 
 <Warning>
-  0DTE 期权 theta decay 在临近收盘前 1-2 小时会**急剧加速**——同样的策略 11:00 ET 建仓和 14:30 ET 建仓，剩余的 P&L 路径完全不同。Replay Lab 让你直观看到这一点：拖时间滑块越接近收盘，相同 SPX 移动幅度对各腿 mark 的影响越剧烈。
+  0DTE 期权 theta decay 在临近收盘前 1-2 小时会**急剧加速**——同样的策略 11:00 ET 建仓和 14:30 ET 建仓，剩余的 P&L 路径完全不同。Replay Lab 让你直观看到这一点：拖时间滑块越接近收盘，相同 SPX 移动幅度对各腿当前价的影响越剧烈。
 </Warning>
 
 <Warning>
-  Replay Lab **不模拟 assignment / pin risk**——0DTE 收盘附近 SPX 钉在某个 strike 时，实盘短腿可能被指派。Replay Lab 只算到 16:00 ET 的 mark-to-market，不会模拟随之而来的股票头寸。
+  Replay Lab **不模拟指派风险 (assignment / pin risk)**——0DTE 收盘附近 SPX 钉在某个 strike 时，实盘短腿可能被指派。Replay Lab 只算到 16:00 ET 的浮动 P&L，不会模拟随之而来的股票头寸。
 </Warning>
