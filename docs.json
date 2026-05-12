@@ -69,6 +69,16 @@
             ]
           },
           {
+            "group": "Replay Lab",
+            "pages": [
+              "replay-lab/overview",
+              "replay-lab/timeline",
+              "replay-lab/strategy-builder",
+              "replay-lab/result-panel",
+              "replay-lab/chain-snapshot"
+            ]
+          },
+          {
             "group": "帮助",
             "pages": ["faq", "roadmap"]
           }

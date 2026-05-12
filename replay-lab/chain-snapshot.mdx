@@ -1,0 +1,124 @@
+---
+title: 期权链快照
+sidebarTitle: 期权链快照
+description: C 键打开当前时刻的完整期权链 NBBO + Greeks 快照
+---
+
+## 这个页面给你什么
+
+期权链快照是 Replay Lab 的"原始数据查询窗口"——它把当前时刻**整张 SPX 0DTE 期权链**（所有 strike 的 Call/Put 的 mid + Greeks + IV）摊开给你看。两种用法：
+
+1. **View 模式（默认）**：纯查询。"我想知道 14:26 时刻 7425 Call 是多少 mid、Δ 是多少？"
+2. **Creator 模式**：在新建策略时点「**从链选择**」按钮触发，打开后**点哪个 strike 自动回填到当前腿的 strike 输入框**
+
+<Note>
+  当前仅支持 SPX 0DTE 期权链。后续会扩展到其他标的 + 1DTE/Weekly。
+</Note>
+
+## 怎么打开
+
+<Steps>
+  <Step title="C 键 / 期权链按钮（View 模式）">
+    在 Replay Lab 主界面按 **C** 键（注意时间滑块不能聚焦），或者点底部控件栏的「**期权链 C**」按钮。打开后只能看，不能选。
+  </Step>
+  <Step title="新建策略浮层里点「从链选择」（Creator 模式）">
+    建仓流程中，「持仓腿」预览每条腿都有一个「从链选择」按钮——点它打开期权链，**点击想要的 strike 行**自动填入该腿。
+  </Step>
+</Steps>
+
+## 整体界面
+
+<Frame>
+  <img src="/images/replay-lab/chain-popover.png" alt="期权链快照：CALL（左）+ STRIKE（中）+ PUT（右）三栏，每条 strike 一行，含 mid + Δ + Γ + Θ + IV" />
+</Frame>
+
+布局：
+
+- **顶部标题**：`期权链` + `SPX 7,424.46 · 历史快照` 显示当前时刻的 SPX spot
+- **三栏头**：CALL · MID / GREEKS  |  STRIKE  |  PUT · MID / GREEKS
+- **每行一个 strike**：围绕当前 spot 上下展开
+- **关闭浮层** 按钮（顶部右上角）或 Esc 键关闭
+
+### 每行字段
+
+```
+MID 50.20  Δ 0.93 · Γ 0.004 · Θ -37.32 · IV 34.4%   7375   MID 0.38  Δ -0.03 · Γ 0.003 · Θ -15.82 · IV 27.3%
+```
+
+| 字段 | 含义 | 单位 |
+|---|---|---|
+| **MID** | (bid + ask) / 2 | 美元/股 |
+| **Δ (delta)** | spot 涨 1 美元时该期权报价的变化预期 | 无单位（Call: 0~1，Put: -1~0） |
+| **Γ (gamma)** | delta 变化率（Δ 变化 / spot 变化） | 每 1 美元 |
+| **Θ (theta)** | 每天的时间价值损耗 | 美元/天 |
+| **IV (implied volatility)** | 隐含波动率 | 百分比 |
+
+<Note>
+  这些数字是 **当前时刻的快照**——拖动时间滑块时整张链会同步更新到对应分钟的数据。
+</Note>
+
+### 显示范围
+
+期权链不会列出**所有**挂牌 strike（SPX 一天可能有 800+ strike），而是**只显示 spot 上下各 20 个 strike**（约 ±$200 范围），覆盖几乎所有日内会用到的合约。
+
+如果你想要的 strike 不在显示范围内（比如远 OTM 投机性 long Call），可以：
+- 直接在新建策略的腿 strike 输入框里手动填数字，建仓时仍会按那个 strike 拉报价
+- 或者期待后续版本支持期权链滚动 / 搜索
+
+## View 模式
+
+打开后只展示，**不能点击 strike**。所有 strike 行不可点（鼠标移上去也不会高亮）。
+
+适用场景：
+- 已经有持仓，想查某个 strike 当前 mid 是多少
+- 验证 Result 面板里的 entry / mark 数据
+- 对比不同 strike 的 IV skew、Greeks 分布
+
+## Creator 模式
+
+从「新建策略」浮层 → 「持仓腿」预览 → 某条腿的「**从链选择**」按钮触发。打开后：
+
+- **顶部多一行提示**：告诉你点击的 strike 会填回到哪条腿
+- **strike 行变成可点击**（鼠标移上去会高亮，光标变成手型）
+- 点击任意 strike 行 → 期权链关闭，该 strike 自动填入对应腿的输入框，"持仓腿"预览重算
+
+适用场景：
+- 不记得当前 spot 附近哪些 strike 流动性最好（看 mid 大小判断）
+- 想根据 delta 选 strike（比如 30Δ short Put）
+- 想看 IV skew 决定铁鹰翼宽（IV 陡 → 翼宽小一点收益高）
+
+## 工作流示例：用 delta 选短腿 strike
+
+新手常听人说"30Δ 短腿"是铁鹰的经典玩法。在 Replay Lab 怎么操作？
+
+<Steps>
+  <Step title="按 N 新建策略 → 选铁鹰模板">
+    暂时随便填 CENTER 和 WIDTH。
+  </Step>
+  <Step title="持仓腿预览里点短 Put 这一行的「从链选择」">
+    打开期权链 Creator 模式。
+  </Step>
+  <Step title="找 |Δ| ≈ 0.30 的 Put 行">
+    从 ATM 往 OTM（向下）扫，找 Δ 在 -0.30 附近的 strike。比如示例图里 7415 Put Δ -0.21（偏小），7420 Put Δ -0.34（接近 0.30），就选 7420。
+  </Step>
+  <Step title="点 7420 行回填">
+    Creator 关闭，短 Put 7420 填入。同样方式选短 Call（找 Δ ≈ 0.30 的 Call）。
+  </Step>
+  <Step title="按对称翼宽填长腿">
+    比如短 Put 7420 + 短 Call 7430 → 长腿各偏离 5 = 长 Put 7415 / 长 Call 7435。点「创建策略」完成。
+  </Step>
+</Steps>
+
+## 重要提示
+
+<Warning>
+  期权链快照是 **当前时刻的历史数据**，不是实时报价。如果你拖时间滑块看到 14:26 时刻某 strike Call mid = $3.80，这是**当时的真实 NBBO mid**，不是现在该期权的报价。
+</Warning>
+
+<Warning>
+  历史 NBBO mid 和实盘真实成交价**有差距**——bid/ask 点差吃掉一截、市价单滑点吃掉一截。Replay Lab 用 mid 估算给你**理论上限**，实盘 entry 通常拿不到 mid。
+</Warning>
+
+<Note>
+  IV 数值在期权深度 ITM/OTM 时可能出现数值不稳（小幅波动或 0），这种情况的 Greeks 也会不太准。建议主要参考 ATM 附近的 IV skew 趋势，而不是单点绝对值。
+</Note>
