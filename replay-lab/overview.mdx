@@ -73,12 +73,12 @@ Dashboard 告诉你**现在该怎么交易**，Replay Lab 告诉你**昨天那�
     拖底部时间滑块到你想"建仓"的那一刻（比如 12:00 ET）。K 线、Dealer PULSE、Standard GEX 关键位会同步更新到那一分钟的状态。
   </Step>
   <Step title="按 N 或点 ＋ 新建策略">
-    选模板（铁鹰/铁蝶/单腿/价差等），调 center strike 和 wing width，确认 → 策略建仓完成。入场价用的是该时刻每条腿的 NBBO mid。
+    选模板（铁鹰/铁蝶/单腿/价差等），调中心 strike 和翼宽，确认 → 策略建仓完成。入场价用的是该时刻每条腿的 NBBO mid。
   </Step>
   <Step title="继续推时间滑块看 P&L 演变">
     继续拖滑块往后（或按播放按钮自动播）。右侧 Result 面板会实时更新：
     - **当前盈亏**：mark-to-market P&L 滑块
-    - **风险条**：bar 上的鲜亮区间 = 这单从入场到现在 P&L 实际走过的范围（实测 envelope），淡色端点是结构性 max profit / max risk
+    - **风险条**：鲜亮区间 = 这单从入场到现在 P&L 实际走过的范围（实测区间），淡色端点是结构性 max profit / max risk
     - **持仓腿**：每条腿的 entry/mark/Δ 实时更新
   </Step>
   <Step title="对比 / 推到收盘">
@@ -103,9 +103,9 @@ Dashboard 告诉你**现在该怎么交易**，Replay Lab 告诉你**昨天那�
 
 - **时间滑块** —— 你在历史时间轴上的"光标"，所有面板都跟随它更新。
 - **入场时刻** —— 你按 N 那一刻的时间游标位置，决定每条腿的 entry mid。
-- **Mark-to-market P&L** —— `(当前 mid - 入场 mid) × qty × 100 × sign`，即按当前 NBBO 中点估算的浮动盈亏。
+- **Mark-to-market P&L** —— 按当前 NBBO 中点估算的浮动盈亏。
 - **At-expiry P&L** —— 假设持仓到 16:00 ET 收盘的理论最大盈利/亏损，由策略结构决定，跟时间无关。
-- **实测 envelope (MFE/MAE)** —— 从入场到当前时刻，**P&L 实际走过的最大/最小值区间**。Replay Lab 复盘场景下最有用的指标。
+- **实测区间 (MFE/MAE)** —— 从入场到当前时刻，**P&L 实际走过的最大/最小值区间**。Replay Lab 复盘场景下最有用的指标。
 - **Breakeven** —— 持仓到期时盈亏平衡的 SPX 价位，价差/铁鹰/铁蝶通常有上下两个。
 
 ## 快捷键速查

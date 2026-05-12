@@ -6,7 +6,7 @@ description: 8 个内置模板（单腿、价差、铁鹰、铁蝶）+ 模板参
 
 ## 这个页面给你什么
 
-Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一条腿一条腿配，选模板填几个参数（center strike / wing width / qty），系统自动生成正确的 strike 组合并按当前时刻的 NBBO mid 锁定入场价。本页讲清每个模板长什么样、什么时候用、参数怎么调。
+Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一条腿一条腿配，选模板填几个参数（中心 strike / 翼宽 / 合约数），系统自动生成正确的 strike 组合并按当前时刻的 NBBO mid 锁定入场价。本页讲清每个模板长什么样、什么时候用、参数怎么调。
 
 <Note>
   当前所有模板**只能用于 SPX 0DTE**。后续会扩展到 SPY / QQQ / 个股 + 1DTE / Weekly。
@@ -29,7 +29,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     在浮层里点想要的模板（铁鹰/铁蝶/单腿等）→ 调 CENTER / WIDTH / QTY 三个参数 → 看下方"持仓腿"预览自动更新。
   </Step>
   <Step title="点「创建策略」">
-    策略立即建仓，当前时刻的 NBBO mid 写入每条腿的 entryPrice，开始按时间轴跟踪 mark-to-market P&L。
+    策略立即建仓，当前时刻每条腿的 NBBO mid 锁定为入场价，开始按时间轴跟踪 mark-to-market P&L。
   </Step>
 </Steps>
 
@@ -91,7 +91,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **风险**：max loss = 付出的权利金；max profit = 无限。
     
-    **breakeven**：CENTER + entryPrice
+    **breakeven**：CENTER + 入场价
   </Card>
   <Card title="买入 Put (Long Put)">
     1 条腿：买 Put @ CENTER。
@@ -100,25 +100,25 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **风险**：max loss = 付出的权利金；max profit = CENTER × 100（理论上 SPX 跌到 0）。
     
-    **breakeven**：CENTER - entryPrice
+    **breakeven**：CENTER - 入场价
   </Card>
   <Card title="卖出 Call (Short Call)">
     1 条腿：卖 Call @ CENTER。**裸卖空，理论无限风险**。
     
-    **何时用**：极度看空 + 想吃 theta（Call IV 通常较高）。但 0DTE 0DTE 裸卖 Call 是最高风险结构之一，**不推荐新手**。
+    **何时用**：极度看空 + 想吃 theta（Call IV 通常较高）。但 0DTE 裸卖 Call 是最高风险结构之一，**不推荐新手**。
     
     **风险**：max loss = 无限；max profit = 收到的 credit。
     
-    **breakeven**：CENTER + creditPrice
+    **breakeven**：CENTER + credit
   </Card>
   <Card title="卖出 Put (Short Put)">
     1 条腿：卖 Put @ CENTER。裸卖空，下行风险高。
     
     **何时用**：愿意在 CENTER 价位"被指派"接货（实盘里）。
     
-    **风险**：max loss = (CENTER - creditPrice) × 100；max profit = 收到的 credit。
+    **风险**：max loss = (CENTER - credit) × 100；max profit = 收到的 credit。
     
-    **breakeven**：CENTER - creditPrice
+    **breakeven**：CENTER - credit
   </Card>
 </CardGroup>
 
@@ -239,7 +239,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 适用场景：
 - 同一时刻铁鹰 vs 铁蝶
 - 同一模板不同 WIDTH
-- 早进场 vs 晚进场（不同 entryAtMs）
+- 早进场 vs 晚进场（不同入场时刻）
 
 ## 重要提示
 
