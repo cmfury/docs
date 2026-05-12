@@ -1,12 +1,12 @@
 ---
 title: 日期与时间轴
 sidebarTitle: 时间轴
-description: Scrub 滑块、播放控件、日期选择器和键盘快捷键的完整说明
+description: 时间滑块、播放控件、日期选择器和键盘快捷键的完整说明
 ---
 
 ## 这个页面给你什么
 
-时间轴是 Replay Lab 的"光标系统"——你拖到哪里，所有面板（K 线视窗、Dealer PULSE、Standard GEX 关键位、当前 P&L、持仓 mark）就同步显示**那一分钟的市场状态**。本页讲清楚怎么选日期、怎么操控时间轴、有哪些快捷键。
+时间轴是 Replay Lab 的"光标系统"——你把时间滑块拖到哪里，所有面板（K 线视窗、Dealer PULSE、Standard GEX 关键位、当前 P&L、持仓 mark）就同步显示**那一分钟的市场状态**。本页讲清楚怎么选日期、怎么操控时间轴、有哪些快捷键。
 
 <Note>
   当前仅支持 **SPX 0DTE** 的历史回放。后续版本会扩展到 SPY / QQQ / 个股，以及 1DTE / Weekly 到期分组。
@@ -42,7 +42,7 @@ Replay Lab 默认能选**过去 90 天内**的任意 NYSE 交易日（不含当�
 
 Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨天没意义。要切日期就在选择器里换一个，会重新加载该日的所有数据（首次加载约 3-5 秒，之后浏览器缓存）。
 
-## 时间轴滑块（Scrub）
+## 时间滑块
 
 <Frame>
   <img src="/images/replay-lab/overview-with-strategy.png" alt="Replay Lab 整体界面，底部传输条含时间滑块" />
@@ -50,18 +50,18 @@ Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨�
 
 底部传输条最显眼的就是那条蓝色滑块。它的语义：
 
-- **左端 = sessionWindow.from**（常规日 09:30 ET，半日市同样 09:30 ET）
-- **右端 = sessionWindow.close**（常规日 16:00 ET，半日市 13:00 ET）
-- **当前位置 = scrubAtMs**（你"现在"在哪一分钟，K 线最右侧的 K 线就是这一分钟）
-- **滑块两端的标签**：左侧固定 `09:30`，右侧固定 `16:00`（半日市右端 `13:00`），中间动态显示当前 scrub 时间
+- **左端 = 开盘时间**（常规日 09:30 ET，半日市同样 09:30 ET）
+- **右端 = 收盘时间**（常规日 16:00 ET，半日市 13:00 ET）
+- **当前位置 = 时间游标**（你"现在"在哪一分钟，K 线最右侧的 K 线就是这一分钟）
+- **滑块两端的标签**：左侧固定 `09:30`，右侧固定 `16:00`（半日市右端 `13:00`），中间动态显示当前时刻
 
 <Note>
-  滑块的最小单位是**1 秒**，但 K 线和大部分数据是**每分钟**更新。所以你拖到 12:30:45 跟拖到 12:30:00 看到的 K 线是一样的，但 Dealer PULSE 因为按 sub-minute 推送频率可能有细微差别。
+  滑块的最小单位是**1 秒**，但 K 线和大部分数据是**每分钟**更新。所以你拖到 12:30:45 跟拖到 12:30:00 看到的 K 线是一样的，但 Dealer PULSE 因为按秒级推送频率可能有细微差别。
 </Note>
 
 ### 鼠标拖动
 
-直接按住滑块的圆点拖左右就行。**拖动过程中**所有面板会跟着实时更新（即"transient" 状态，不写入历史 P&L 包络）；**松开鼠标**才会算 commit，写入策略的 mark-to-market 历史。
+直接按住滑块的圆点拖左右就行。**拖动过程中**所有面板会跟着实时更新（即临时态，不写入历史 P&L 包络）；**松开鼠标**才会算确认，写入策略的 mark-to-market 历史。
 
 ### 点击轨道
 
@@ -77,8 +77,8 @@ Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨�
 | **→** | 前进 1 分钟 |
 | **Shift + ←** | 后退 5 分钟（快移） |
 | **Shift + →** | 前进 5 分钟（快移） |
-| **Home** | 跳到 sessionWindow.from（开盘前） |
-| **End** | 跳到 sessionWindow.close（收盘） |
+| **Home** | 跳到开盘时间 |
+| **End** | 跳到收盘时间 |
 
 <Warning>
   滑块聚焦时按 **N / C / I 等字母键会被滑块吃掉**变成 ARIA slider 自身的细调。如果你要触发新建策略 (N) 或打开链 (C)，**先点一下空白处取消滑块焦点**，或者直接点顶部对应按钮。
@@ -105,7 +105,7 @@ Replay Lab **一次只能复盘一天**——SPX 0DTE 期权当日到期，跨�
 | **8x** | 1 分钟历史 = 0.125 秒（约 50 秒跑完一整天） |
 
 <Note>
-  播放只会跨越 sessionWindow.from → sessionWindow.close 的范围，到收盘自动停。中途按 Space 暂停，再按继续从暂停点播放。
+  播放只会跨越开盘时间 → 收盘时间的范围，到收盘自动停。中途按 Space 暂停，再按继续从暂停点播放。
 </Note>
 
 ## 半日市
@@ -127,26 +127,26 @@ Replay Lab 自动识别半日市：
 
 ## 时间轴跟其他面板的同步
 
-拖动 scrub 时，以下面板**实时同步更新**：
+拖动时间滑块时，以下面板**实时同步更新**：
 
 | 面板 | 同步内容 |
 |---|---|
-| K 线主图 | 显示 09:30 ET 到 scrub 时刻的所有 K 线（未来时段保持空白） |
-| Dealer PULSE | 显示 scrub 时刻的最新 dealer GEX 快照对应的 PULSE 位置 |
-| Standard GEX 关键位 | 顶部 K/CW/PW/F 数字 + K 线右侧 Call Wall / Put Wall / Flip 水平线，全部同步到 scrub 时刻 |
+| K 线主图 | 显示 09:30 ET 到当前时刻的所有 K 线（未来时段保持空白） |
+| Dealer PULSE | 显示当前时刻的最新 dealer GEX 快照对应的 PULSE 位置 |
+| Standard GEX 关键位 | 顶部 K/CW/PW/F 数字 + K 线右侧 Call Wall / Put Wall / Flip 水平线，全部同步到当前时刻 |
 | 顶部 SPX 现价 | 该 K 线的 close 价 + 与开盘价的涨跌 |
-| 当前盈亏 | 用 scrub 时刻的每条腿 NBBO mid 重新算 mark-to-market P&L |
+| 当前盈亏 | 用当前时刻的每条腿 NBBO mid 重新算 mark-to-market P&L |
 | 持仓腿 mark | 每条腿的 mark 列同步更新 |
-| 风险条 envelope | 包络左右端会随 scrub 推进**单调外扩**（mfe/mae 是从入场到 scrub 时刻 P&L 路径上的 max/min） |
+| 风险条 envelope | 包络左右端会随时间游标推进**单调外扩**（mfe/mae 是从入场到当前时刻 P&L 路径上的 max/min） |
 
 <Note>
-  入场 SPOT (entry spot) 和入场时间 (entryAtMs) 是**建仓那一刻**冻结的，scrub 后续推动**不会改变**这两个值。
+  入场 SPOT 和入场时间是**建仓那一刻**冻结的，时间游标后续推动**不会改变**这两个值。
 </Note>
 
 ## 重要提示
 
 <Warning>
-  Scrub 滑块的精度是 1 秒，但 K 线 / Dealer PULSE / Greeks 大部分数据是**每分钟**采样的。这意味着 12:30:30 和 12:30:00 看到的 K 线、PULSE、Greeks 是**同一份**——只有 SPX spot tick（来自 dealer-price 1 秒级 tick）会有差别。
+  时间滑块的精度是 1 秒，但 K 线 / Dealer PULSE / Greeks 大部分数据是**每分钟**采样的。这意味着 12:30:30 和 12:30:00 看到的 K 线、PULSE、Greeks 是**同一份**——只有 SPX spot tick（1 秒级 tick）会有差别。
 </Warning>
 
 <Warning>
@@ -154,5 +154,5 @@ Replay Lab 自动识别半日市：
 </Warning>
 
 <Note>
-  Replay Lab 不能"快进到未来"——所有数据都是真实历史，scrub 不能超过该交易日的 sessionWindow.close。
+  Replay Lab 不能"快进到未来"——所有数据都是真实历史，时间游标不能超过该交易日的收盘时间。
 </Note>

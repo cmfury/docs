@@ -6,7 +6,7 @@ description: 8 个内置模板（单腿、价差、铁鹰、铁蝶）+ 模板参
 
 ## 这个页面给你什么
 
-Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一条腿一条腿配，选模板填几个参数（center strike / wing width / qty），系统自动生成正确的 strike 组合并按 scrub 时刻的 NBBO mid 锁定入场价。本页讲清每个模板长什么样、什么时候用、参数怎么调。
+Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一条腿一条腿配，选模板填几个参数（center strike / wing width / qty），系统自动生成正确的 strike 组合并按当前时刻的 NBBO mid 锁定入场价。本页讲清每个模板长什么样、什么时候用、参数怎么调。
 
 <Note>
   当前所有模板**只能用于 SPX 0DTE**。后续会扩展到 SPY / QQQ / 个股 + 1DTE / Weekly。
@@ -15,7 +15,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 ## 入场流程
 
 <Steps>
-  <Step title="拖 scrub 到目标入场时刻">
+  <Step title="拖时间滑块到目标入场时刻">
     比如 12:00 ET。注意：入场价用的是这一时刻每条腿的 NBBO **mid 中点**，不是 bid 也不是 ask。实盘里你大概率拿不到 mid，所以 Replay Lab 算出来的 P&L 是**理论上限**。
   </Step>
   <Step title="按 N 或点右栏 ＋ 新建策略">
@@ -29,7 +29,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     在浮层里点想要的模板（铁鹰/铁蝶/单腿等）→ 调 CENTER / WIDTH / QTY 三个参数 → 看下方"持仓腿"预览自动更新。
   </Step>
   <Step title="点「创建策略」">
-    策略立即建仓，scrub 时刻的 NBBO mid 写入每条腿的 entryPrice，开始按时间轴跟踪 mark-to-market P&L。
+    策略立即建仓，当前时刻的 NBBO mid 写入每条腿的 entryPrice，开始按时间轴跟踪 mark-to-market P&L。
   </Step>
 </Steps>
 
@@ -41,7 +41,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 
 浮层从上到下：
 
-1. **入场时间 + spot**：取自当前 scrub 时刻
+1. **入场时间 + spot**：取自当前时刻
 2. **8 个模板按钮**（详见下方）
 3. **参数区**：CENTER / WIDTH / QTY 三个数字输入框
 4. **STANDARD GEX 锚点**：六个快捷按钮（King / Call Wall / Put Wall / Gamma Flip / Major Positive / Major Negative），点哪个就把 CENTER 设置成那个关键位
@@ -73,7 +73,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 | **Major Positive** | 当前最大正 GEX strike |
 | **Major Negative** | 当前最大负 GEX strike |
 
-点哪个，CENTER 就跳到对应的 strike。详细概念见 [核心节点](/concepts/key-nodes)。
+点哪个，CENTER 就跳到对应的 strike。
 
 ## 8 个模板
 
@@ -221,7 +221,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 模板生成的腿位**不是固定的**——「持仓腿」预览区每条腿的 strike 都可以单独改：
 
 - 直接在 strike 输入框里改数字 → 该腿用新 strike，但仍是模板生成的方向（买/卖）和 right（Call/Put）
-- 点「**从链选择**」按钮 → 打开期权链快照（详见 [期权链快照](/replay-lab/chain-snapshot)），点击想要的 strike 自动回填
+- 点「**从链选择**」按钮 → 打开期权链快照，点击想要的 strike 自动回填
 - 点「**选择 Center**」按钮 → 让所有腿基于该腿重新对齐（重算 CENTER）
 
 <Note>
@@ -248,7 +248,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 </Warning>
 
 <Warning>
-  0DTE 期权 theta decay 在临近收盘前 1-2 小时会**急剧加速**——同样的策略 11:00 ET 建仓和 14:30 ET 建仓，剩余的 P&L 路径完全不同。Replay Lab 让你直观看到这一点：拖 scrub 越接近收盘，相同 SPX 移动幅度对各腿 mark 的影响越剧烈。
+  0DTE 期权 theta decay 在临近收盘前 1-2 小时会**急剧加速**——同样的策略 11:00 ET 建仓和 14:30 ET 建仓，剩余的 P&L 路径完全不同。Replay Lab 让你直观看到这一点：拖时间滑块越接近收盘，相同 SPX 移动幅度对各腿 mark 的影响越剧烈。
 </Warning>
 
 <Warning>
