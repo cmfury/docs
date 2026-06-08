@@ -15,7 +15,29 @@ GEX Dashboard 是 Nightwatch 的核心。它把所有上市期权合约的持仓
 | **0DTE / 1DTE / WEEKLY** | 三个到期分组，每个分组对应不同的持仓时间框架 |
 | **LIVE 指示灯** | 绿色脉冲 = 实时更新；灰色 = 连接中断（会自动重连） |
 | **MKT OPEN / MKT CLOSED** | 美东时间市场状态 |
+| **Standard / Chart** | 切换 Dashboard 视图模式 |
 | **GEX / VOL 模块切换** | 切换到 Volatility 面板 |
+
+## 两种视图模式
+
+Dashboard 提供两种视图，通过顶部切换按钮选择：
+
+<CardGroup cols={2}>
+  <Card title="Chart 视图（默认）" icon="chart-line">
+    K 线图 + PULSE 做市商标记 + Option Buy Volume 柱状图。右侧可展开 Flow 面板查看实时异动。
+
+    适合日内交易者实时跟盘——价格走势、做市商定位和资金流向在同一画面。
+
+    → 详见 [Dealer Chart 与 PULSE](/dashboard/dealer-chart)、[Flow 面板](/dashboard/uw-flow)
+  </Card>
+  <Card title="Standard 视图" icon="table">
+    结构面板 + 历史热力图。以表格和热力图展示 GEX 数值分布和日内演化。
+
+    适合需要精确数值参考或回看日内结构变化的场景。
+
+    → 详见 [结构面板](/dashboard/structure-panel)、[历史热力图](/dashboard/heatmap-panel)
+  </Card>
+</CardGroup>
 
 ## 工作流建议
 

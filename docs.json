@@ -54,7 +54,8 @@
               "dashboard/overview",
               "dashboard/structure-panel",
               "dashboard/heatmap-panel",
-              "dashboard/dealer-chart"
+              "dashboard/dealer-chart",
+              "dashboard/uw-flow"
             ]
           },
           {
@@ -79,8 +80,17 @@
             ]
           },
           {
+            "group": "Discord",
+            "pages": [
+              "discord/overview",
+              "discord/flow-alert",
+              "discord/research",
+              "discord/research-reading"
+            ]
+          },
+          {
             "group": "帮助",
-            "pages": ["faq", "roadmap"]
+            "pages": ["subscription", "faq", "roadmap"]
           }
         ]
       }
