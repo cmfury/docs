@@ -348,7 +348,173 @@ if barstate.islast
 
         maxAbsGex := maxAbsGex == 0.0 ? 1.0 : maxAbsGex
         float mappedGammaFlip = gammaFlipMode == "自动计算" and not na(autoGammaFlip) ? autoGammaFlip : manualMappedGammaFlip
-        // ... 后续为支撑/阻力筛选 + 柱体/线/标签绘制 + 汇总表（完整代码请从 Discord #resources 获取）
+        float supportMinStrength = kingStrength * supportKingRatio / 100.0
+        bool useSpxProfessionalFilter = sourceName == "SPX" and spxKeyFilterMode == "专业筛选"
+        bool useDynamicKeyFilter = useSpxProfessionalFilter or (sourceName != "SPX" and dynamicKeyFilterMode == "动态筛选")
+        float activeSideStrengthRatio = useSpxProfessionalFilter ? spxSideStrengthRatio : dynamicSideStrengthRatio
+        float activeShelfStrengthRatio = useSpxProfessionalFilter ? math.max(spxSideStrengthRatio, 65.0) : dynamicShelfStrengthRatio
+        int activeMaxLevelsPerSide = useSpxProfessionalFilter ? spxMaxLevelsPerSide : dynamicMaxLevelsPerSide
+        bool activeLocalPeaksOnly = useSpxProfessionalFilter ? spxLocalPeaksOnly : dynamicLocalPeaksOnly
+        bool activeSplitByCurrentPrice = useSpxProfessionalFilter ? spxSplitByCurrentPrice : dynamicSplitByCurrentPrice
+        float keySplitPrice = useDynamicKeyFilter and activeSplitByCurrentPrice ? close : kingStrike
+        float maxResistanceStrength = 0.0
+        float maxSupportStrength = 0.0
+        if useDynamicKeyFilter
+            for i = 0 to rowCount - 1
+                float sideStrike = array.get(strikes, i)
+                float sideStrength = math.max(math.abs(array.get(calls, i)), math.abs(array.get(puts, i)))
+                if sideStrike > keySplitPrice
+                    maxResistanceStrength := math.max(maxResistanceStrength, sideStrength)
+                if sideStrike < keySplitPrice
+                    maxSupportStrength := math.max(maxSupportStrength, sideStrength)
+        float detectedRowStep = na
+        if rowCount > 1
+            for i = 0 to rowCount - 2
+                float currentStep = math.abs(array.get(strikes, i) - array.get(strikes, i + 1))
+                if currentStep > 0.0
+                    detectedRowStep := na(detectedRowStep) ? currentStep : math.min(detectedRowStep, currentStep)
+        detectedRowStep := na(detectedRowStep) ? math.max(1.0, multiplier) : detectedRowStep
+
+        int rightX = bar_index + anchorBars
+        int maxWidthX = math.max(1, maxWidthBars)
+        int gapX = math.max(1, textGapBars)
+        int lineLeftX = rightX - levelSpanBars
+        int textX = rightX + gapX
+        int keyGapBars = multiplier == 1.0 ? keyAppendGapBars : math.max(keyAppendGapBars, mappedKeyAppendMinBars)
+        int keyTextX = textX + keyGapBars
+
+        float mappedRowHeight = rowHeight * detectedRowStep
+        float upperPad = mappedRowHeight
+        float lowerPad = 0.0
+        float splitGap = mappedRowHeight * rowSplitGapPct
+        float rowMidOffset = mappedRowHeight * 0.5
+
+        if showWallBands
+            addBox(lineLeftX, callWallStrike + upperPad, rightX, callWallStrike - lowerPad, color.new(callColor, 93), color.new(callColor, 100), 1)
+            addBox(lineLeftX, putWallStrike + upperPad, rightX, putWallStrike - lowerPad, color.new(putColor, 93), color.new(putColor, 100), 1)
+
+        if not showKeyNodes
+            addLine(lineLeftX, callWallStrike, rightX, callWallStrike, color.new(callColor, 40), line.style_solid, 1)
+            addLabel(textX, callWallStrike, "Call Wall " + str.tostring(int(callWallStrike)) + "  " + fmtGex(maxCall), callColor, label.style_label_left, size.small)
+        if not showKeyNodes
+            addLine(lineLeftX, putWallStrike, rightX, putWallStrike, color.new(putColor, 40), line.style_solid, 1)
+            addLabel(textX, putWallStrike, "Put Wall " + str.tostring(int(putWallStrike)) + "  " + fmtGex(-maxPutAbs), putColor, label.style_label_left, size.small)
+
+        if showGammaFlip
+            addLine(lineLeftX, mappedGammaFlip, rightX, mappedGammaFlip, color.new(color.aqua, 20), line.style_dashed, 1)
+            addLabel(textX, mappedGammaFlip, "Gamma Flip " + str.tostring(mappedGammaFlip, "#.00"), color.aqua, label.style_label_left, size.small)
+
+        if showKeyNodes
+            for i = 0 to rowCount - 1
+                float strike = array.get(strikes, i)
+                float rawStrike = array.get(rawStrikes, i)
+                float c = array.get(calls, i)
+                float p = array.get(puts, i)
+                float nodeStrength = math.max(math.abs(c), math.abs(p))
+                float signedNodeGex = math.abs(c) >= math.abs(p) ? c : p
+                bool isKing = strike == kingStrike
+                float prevStrength = i > 0 ? math.max(math.abs(array.get(calls, i - 1)), math.abs(array.get(puts, i - 1))) : nodeStrength
+                float nextStrength = i < rowCount - 1 ? math.max(math.abs(array.get(calls, i + 1)), math.abs(array.get(puts, i + 1))) : nodeStrength
+                bool isLocalPeak = not activeLocalPeaksOnly or (nodeStrength >= prevStrength and nodeStrength >= nextStrength)
+                float sideMaxForNode = strike > keySplitPrice ? maxResistanceStrength : strike < keySplitPrice ? maxSupportStrength : kingStrength
+                bool isStrongShelf = useDynamicKeyFilter and sideMaxForNode > 0.0 and nodeStrength >= sideMaxForNode * activeShelfStrengthRatio / 100.0
+                bool passesShapeFilter = isLocalPeak or isStrongShelf
+                int strongerResistanceCount = 0
+                int strongerSupportCount = 0
+                if useDynamicKeyFilter
+                    for j = 0 to rowCount - 1
+                        float compareStrike = array.get(strikes, j)
+                        float compareStrength = math.max(math.abs(array.get(calls, j)), math.abs(array.get(puts, j)))
+                        if compareStrike > keySplitPrice and compareStrength > nodeStrength
+                            strongerResistanceCount += 1
+                        if compareStrike < keySplitPrice and compareStrength > nodeStrength
+                            strongerSupportCount += 1
+                bool isResistanceNode = useDynamicKeyFilter ? strike > keySplitPrice and maxResistanceStrength > 0.0 and nodeStrength >= maxResistanceStrength * activeSideStrengthRatio / 100.0 and passesShapeFilter and strongerResistanceCount < activeMaxLevelsPerSide : strike > kingStrike and nodeStrength >= keyNodeThreshold
+                bool isSupportNode = useDynamicKeyFilter ? strike < keySplitPrice and maxSupportStrength > 0.0 and nodeStrength >= maxSupportStrength * activeSideStrengthRatio / 100.0 and passesShapeFilter and strongerSupportCount < activeMaxLevelsPerSide : strike < kingStrike and nodeStrength >= keyNodeThreshold and nodeStrength >= supportMinStrength
+                bool isBigNode = isResistanceNode or isSupportNode
+                if isKing or isBigNode
+                    color nodeColor = isKing ? kingColor : strike > keySplitPrice ? resistanceColor : supportColor
+                    color bandColor = isKing ? kingBandColor : strike > keySplitPrice ? resistanceBandColor : supportBandColor
+                    int bandTransparency = isKing ? kingBandTransparency : strike > keySplitPrice ? resistanceBandTransparency : supportBandTransparency
+                    string nodeName = isKing ? "King" : strike > keySplitPrice ? "阻力" : "支撑"
+                    int nodeWidth = isKing ? keyLineWidth + 1 : keyLineWidth
+                    addBox(lineLeftX, strike + upperPad, rightX, strike - lowerPad, color.new(bandColor, bandTransparency), color.new(bandColor, 100), 1)
+                    addLine(lineLeftX, strike, rightX, strike, color.new(nodeColor, keyLineTransparency), line.style_solid, nodeWidth)
+
+        for i = 0 to rowCount - 1
+            float strike = array.get(strikes, i)
+            float rawStrike = array.get(rawStrikes, i)
+            float c = array.get(calls, i)
+            float p = array.get(puts, i)
+            bool isKingRow = strike == kingStrike
+            float rowStrength = math.max(math.abs(c), math.abs(p))
+            float prevRowStrength = i > 0 ? math.max(math.abs(array.get(calls, i - 1)), math.abs(array.get(puts, i - 1))) : rowStrength
+            float nextRowStrength = i < rowCount - 1 ? math.max(math.abs(array.get(calls, i + 1)), math.abs(array.get(puts, i + 1))) : rowStrength
+            bool isRowLocalPeak = not activeLocalPeaksOnly or (rowStrength >= prevRowStrength and rowStrength >= nextRowStrength)
+            float sideMaxForRow = strike > keySplitPrice ? maxResistanceStrength : strike < keySplitPrice ? maxSupportStrength : kingStrength
+            bool isStrongRowShelf = useDynamicKeyFilter and sideMaxForRow > 0.0 and rowStrength >= sideMaxForRow * activeShelfStrengthRatio / 100.0
+            bool passesRowShapeFilter = isRowLocalPeak or isStrongRowShelf
+            int strongerResistanceRows = 0
+            int strongerSupportRows = 0
+            if useDynamicKeyFilter
+                for j = 0 to rowCount - 1
+                    float compareStrike = array.get(strikes, j)
+                    float compareStrength = math.max(math.abs(array.get(calls, j)), math.abs(array.get(puts, j)))
+                    if compareStrike > keySplitPrice and compareStrength > rowStrength
+                        strongerResistanceRows += 1
+                    if compareStrike < keySplitPrice and compareStrength > rowStrength
+                        strongerSupportRows += 1
+            bool isResistanceRow = useDynamicKeyFilter ? strike > keySplitPrice and maxResistanceStrength > 0.0 and rowStrength >= maxResistanceStrength * activeSideStrengthRatio / 100.0 and passesRowShapeFilter and strongerResistanceRows < activeMaxLevelsPerSide : strike > kingStrike and rowStrength >= keyNodeThreshold
+            bool isSupportRow = useDynamicKeyFilter ? strike < keySplitPrice and maxSupportStrength > 0.0 and rowStrength >= maxSupportStrength * activeSideStrengthRatio / 100.0 and passesRowShapeFilter and strongerSupportRows < activeMaxLevelsPerSide : strike < kingStrike and rowStrength >= keyNodeThreshold and rowStrength >= supportMinStrength
+            bool isNodeRow = showKeyNodes and (isKingRow or isResistanceRow or isSupportRow)
+
+            float rowMid = strike + rowMidOffset
+            float callTop = strike + upperPad
+            float callBottom = rowMid + splitGap
+            float putTop = rowMid - splitGap
+            float putBottom = strike - lowerPad
+
+            if c > 0.0
+                color callBarColor = isKingRow ? kingColor : callColor
+                int cw = math.max(1, int(math.round(math.abs(c) / maxAbsGex * maxWidthX)))
+                addBox(rightX - cw, callTop, rightX, callBottom, color.new(callBarColor, fillTransparency), color.new(callBarColor, barBorderTransparency), 1)
+                if showValueLabel(c)
+                    addLabel(rightX - cw - gapX, (callTop + callBottom) * 0.5, fmtGex(c), callBarColor, label.style_label_right, size.tiny)
+
+            if p < 0.0
+                color putBarColor = isKingRow ? kingColor : putColor
+                int pw = math.max(1, int(math.round(math.abs(p) / maxAbsGex * maxWidthX)))
+                addBox(rightX - pw, putTop, rightX, putBottom, color.new(putBarColor, fillTransparency), color.new(putBarColor, barBorderTransparency), 1)
+                if showValueLabel(p)
+                    addLabel(rightX - pw - gapX, (putTop + putBottom) * 0.5, fmtGex(p), putBarColor, label.style_label_right, size.tiny)
+
+            if showStrikeLabels
+                float rowSignedGex = math.abs(c) >= math.abs(p) ? c : p
+                string priceLabel = multiplier == 1.0 ? str.tostring(int(strike)) : str.tostring(strike, "#.00") + " (" + str.tostring(int(rawStrike)) + ")"
+                string nodeName = isKingRow ? "King" : strike > keySplitPrice ? "阻力" : "支撑"
+                color keyTextColor = isKingRow ? kingColor : strike > keySplitPrice ? resistanceColor : supportColor
+                addLabel(textX, rowMid, priceLabel, color.new(strikeColorInput, 0), label.style_label_left, labelSize(priceTextSizeInput))
+                if isNodeRow and showKeyText
+                    addLabel(keyTextX, rowMid, nodeName, keyTextColor, label.style_label_left, labelSize(keyTextSizeInput))
+
+        if showSummary
+            table.cell(summary, 0, 0, "GEX 阶梯", text_color=color.white, text_size=size.small)
+            table.cell(summary, 1, 0, "GEX 数据", text_color=color.new(color.white, 20), text_size=size.small)
+            table.cell(summary, 0, 1, "Call 合计", text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 1, 1, fmtGex(totalCall), text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 0, 2, "Put 合计", text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 1, 2, fmtGex(totalPut), text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 0, 3, "净 GEX", text_color=color.white, text_size=size.tiny)
+            table.cell(summary, 1, 3, fmtGex(totalCall + totalPut), text_color=totalCall + totalPut >= 0 ? callColor : putColor, text_size=size.tiny)
+            table.cell(summary, 0, 4, "Call Wall", text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 1, 4, str.tostring(int(callWallStrike)) + "  " + fmtGex(maxCall), text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 0, 5, "Put Wall", text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 1, 5, str.tostring(int(putWallStrike)) + "  " + fmtGex(-maxPutAbs), text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 0, 6, "King", text_color=kingColor, text_size=size.tiny)
+            table.cell(summary, 1, 6, str.tostring(int(kingStrike)) + "  " + fmtGex(kingSignedGex), text_color=kingColor, text_size=size.tiny)
+            if showMappedInfo
+                table.cell(summary, 0, 7, "映射", text_color=color.white, text_size=size.tiny)
+                table.cell(summary, 1, 7, sourceName + " 固定 x" + str.tostring(multiplier, "#.000"), text_color=color.white, text_size=size.tiny)
 ```
 
 </Accordion>
