@@ -59,3 +59,462 @@ Weekly 分组只展示第一行的持仓结构指标，不包含 Active Call/Put
 - 价格在 Flip **上方**：正 GEX 环境，震荡策略占优
 - 价格在 Flip **下方**：负 GEX 环境，动量策略占优
 - Major Positive 和 Major Negative 之间：当日结构核心区间，价格能否突破这个区间往往决定全天走势
+
+---
+
+## Copy TV CSV — 导出 GEX 数据到 TradingView
+
+结构面板顶部有一个 **Copy TV CSV** 按钮，点击后将当前所有行权价的 GEX 数据复制到剪贴板，格式为 CSV：
+
+```
+strike,put_gex_b,call_gex_b
+600,0.012345,-0.006789
+599,0.008901,-0.003456
+...
+```
+
+- `strike`：行权价
+- `put_gex_b`：该行权价的 Put GEX（单位：十亿美元）
+- `call_gex_b`：该行权价的 Call GEX（单位：十亿美元）
+
+复制后可以粘贴到 TradingView 的自定义指标中使用，把 GEX 节点直接叠加到你的 K 线图上。
+
+---
+
+## 配套 TradingView 指标：Alogs GEX 磁吸阶梯
+
+将 Copy TV CSV 复制的数据粘贴到这个指标的输入框中，即可在 TradingView K 线图上直接叠加 GEX 结构——King 节点、支撑/阻力、Gamma Flip、Call/Put Wall 一目了然。
+
+### 使用步骤
+
+1. 在 Nightwatch Standard 视图的结构面板点击 **Copy TV CSV**
+2. 打开 TradingView，进入 Pine Editor，粘贴下方代码并添加到图表
+3. 点击指标设置（齿轮图标），在"数据"栏的对应输入框（QQQ / SPY / SPX）中粘贴刚才复制的 CSV
+4. 指标会自动解析数据并在图表上绘制 GEX 柱状图和关键价位
+
+### 主要功能
+
+- **GEX 柱状图**：每个行权价显示 Call（绿色）和 Put（红色）的 GEX 强度
+- **King 节点**：紫色标记当前最强的 GEX 聚集价位
+- **支撑 / 阻力**：蓝色支撑、橙色阻力，基于 GEX 强度动态筛选
+- **Gamma Flip**：自动计算净 GEX 零轴穿越点，虚线标注
+- **Call Wall / Put Wall**：Call 和 Put 持仓最集中的行权价
+- **价格映射**：自动将 QQQ→NQ/MNQ、SPY→ES/MES、SPX→ES 的行权价映射到期货图表
+
+
+<Accordion title="Pine Script 完整代码（点击展开）">
+
+```pine
+//@version=6
+indicator("Alogs GEX 磁吸阶梯", overlay=true, max_boxes_count=300, max_labels_count=300, max_lines_count=100)
+
+const string DEFAULT_QQQ_GEX_DATA = "strike,put_gex_b,call_gex_b\n730,-0.0407,9.3\n729,0,1.6\n728,0,2.0\n727,-0.0109,3.2\n726,0,4.3\n725,-0.2247,17.8\n724,-1.0,5.2\n723,-0.7471,5.3\n722,-1.6,30.0\n721,-4.8,13.1\n720,-6.2,36.8\n719,-2.7,15.4\n718,-2.6,18.1\n717,-5.0,11.8\n716,-7.3,13.1\n715,-14.5,32.1\n714,-7.6,20.0\n713,-7.9,9.8\n712,-8.6,13.2\n711,-7.1,9.3\n710,-14.8,9.3\n709,-5.2,3.7\n708,-5.0,1.5\n707,-4.0,0\n706,-2.8,0"
+const string DEFAULT_SPY_GEX_DATA = "strike,put_gex_b,call_gex_b\n"
+const string DEFAULT_SPX_GEX_DATA = "strike,put_gex_b,call_gex_b\n"
+
+groupData = "数据"
+sourceMode = input.string("自动", "GEX 数据源", options=["自动", "QQQ", "SPY", "SPX"], tooltip="自动模式会根据 ETF / Index / Futures 自动选择 QQQ、SPY 或 SPX 输入。", group=groupData)
+qqqGexInput = input.text_area(defval=DEFAULT_QQQ_GEX_DATA, title="QQQ GEX 数据", tooltip="用于 QQQ ETF、NDX 指数、NQ/MNQ 期货。每行格式: strike,put_gex_b,call_gex_b。单位是 B；Put 建议填负数。", group=groupData)
+spyGexInput = input.text_area(defval=DEFAULT_SPY_GEX_DATA, title="SPY GEX 数据", tooltip="用于 SPY ETF；也可手动选择 SPY -> ES 映射。每行格式: strike,put_gex_b,call_gex_b。", group=groupData)
+spxGexInput = input.text_area(defval=DEFAULT_SPX_GEX_DATA, title="SPX GEX 数据", tooltip="用于 SPX 指数、ES/MES 期货。每行格式: strike,put_gex_b,call_gex_b。", group=groupData)
+
+groupMapping = "标的映射"
+mapMode = input.string("自动", "价格映射模式", options=["自动", "QQQ -> NQ", "SPY -> ES", "SPX -> ES", "不转换", "手动倍率"], tooltip="自动模式会按当前图表固定映射，不使用实时价格动态重算。QQQ 在 NDX/NQ/MNQ 上使用 QQQ->NQ 倍率；SPY 在 SPX/ES/MES 上使用 SPY->ES 倍率；SPX 在 ES/MES 上默认使用 SPX->ES 倍率。", group=groupMapping)
+fixedQQQToNQ = input.float(41.19, "固定倍率 QQQ -> NQ", minval=0.0001, step=0.001, group=groupMapping)
+fixedSPYToES = input.float(10.000, "固定倍率 SPY -> ES", minval=0.0001, step=0.001, group=groupMapping)
+fixedSPXToES = input.float(1.000, "固定倍率 SPX -> ES", minval=0.0001, step=0.001, group=groupMapping)
+manualMultiplier = input.float(1.0, "手动倍率", minval=0.0001, step=0.01, group=groupMapping)
+mapGammaFlip = input.bool(true, "同步映射 Gamma Flip", group=groupMapping)
+showMappedInfo = input.bool(true, "汇总表显示映射信息", group=groupMapping)
+
+groupLayout = "布局"
+anchorBars = input.int(80, "右侧固定偏移K数", minval=1, maxval=500, tooltip="以最后一根K线为基准向右固定偏移。柱体不再使用可见窗口百分比，因此缩放/滚动不会改变柱宽。", group=groupLayout)
+maxWidthBars = input.int(46, "最大柱宽K数", minval=3, maxval=300, group=groupLayout)
+levelSpanBars = input.int(260, "墙位线长度K数", minval=20, maxval=2000, group=groupLayout)
+textGapBars = input.int(2, "右侧文字间距K数", minval=1, maxval=50, group=groupLayout)
+keyAppendGapBars = input.int(2, "关键位追加间距K数", minval=0, maxval=120, group=groupLayout)
+mappedKeyAppendMinBars = input.int(28, "映射模式关键位最小间距K数", minval=0, maxval=120, tooltip="QQQ->NQ 或 SPY->ES 时，右侧价格文本较长。这里用于防止 King/支撑/阻力压到灰色价格。实际间距取它和"关键位追加间距K数"的较大值。", group=groupLayout)
+rowHeight = input.float(1.0, "单行高度倍率", minval=0.1, maxval=2.0, step=0.02, tooltip="默认 1.0 会自动填满相邻 strike 间距。QQQ 通常是 1 点一档，SPX 通常是 5 点一档；映射到期货时使用映射后的 strike 间距。", group=groupLayout)
+rowSplitGapPct = input.float(0.0, "上下柱体间隔比例", minval=0.0, maxval=0.30, step=0.01, tooltip="同一 strike 内 Call/Put 上下柱体之间的间隔。默认 0 为紧贴。", group=groupLayout)
+
+groupStyle = "样式"
+callColor = input.color(color.rgb(0, 235, 155), "Call 颜色", group=groupStyle)
+putColor = input.color(color.rgb(255, 68, 82), "Put 颜色", group=groupStyle)
+strikeColorInput = input.color(color.rgb(120, 135, 155), "行权价文字颜色", group=groupStyle)
+fillTransparency = input.int(48, "柱体透明度", minval=0, maxval=95, group=groupStyle)
+barBorderTransparency = input.int(12, "柱体边框透明度", minval=0, maxval=95, group=groupStyle)
+showWallBands = input.bool(true, "高亮最大墙位", group=groupStyle)
+showStrikeLabels = input.bool(true, "显示行权价", group=groupStyle)
+
+groupLabels = "标签"
+labelMode = input.string("只显示主要", "数值标签", options=["关闭", "只显示主要", "全部显示"], group=groupLabels)
+majorThreshold = input.float(5.0, "主要标签阈值(B)", minval=0.0, step=0.5, group=groupLabels)
+priceTextSizeInput = input.string("小", "右侧价格字体大小", options=["极小", "小", "正常", "大", "很大"], group=groupLabels)
+keyTextSizeInput = input.string("小", "关键位字体大小", options=["极小", "小", "正常", "大", "很大"], group=groupLabels)
+showKeyText = input.bool(false, "显示右侧关键位文字", tooltip="开启后会在右侧价格后面追加 King / 阻力 / 支撑。QQQ->NQ 或 SPY->ES 映射时，如仍有重叠，可加大"映射模式关键位最小间距K数"。", group=groupLabels)
+showSummary = input.bool(true, "显示汇总表", group=groupLabels)
+
+groupLevels = "关键价位"
+showGammaFlip = input.bool(true, "显示 Gamma Flip", group=groupLevels)
+gammaFlipMode = input.string("自动计算", "Gamma Flip 来源", options=["自动计算", "手动输入"], tooltip="自动计算: 使用相邻 strike 的净 GEX(Call+Put) 零轴穿越线性插值。找不到穿越点时回退到手动输入。", group=groupLevels)
+gammaFlip = input.float(710.72, "Gamma Flip 价格", step=0.01, group=groupLevels)
+showKeyNodes = input.bool(true, "显示 King / 支撑阻力节点", group=groupLevels)
+keyNodeThreshold = input.float(14.0, "大节点阈值(B)", minval=0.0, step=0.5, group=groupLevels)
+supportKingRatio = input.float(50.0, "支撑至少达到 King 比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="低于 King 的支撑节点必须同时超过大节点阈值，并达到 King 强度的指定比例。默认 50%。", group=groupLevels)
+dynamicKeyFilterMode = input.string("动态筛选", "通用支撑阻力筛选", options=["动态筛选", "King比例"], tooltip="动态筛选会按当前价上下方分组，使用同侧最大节点、局部峰值和数量限制来区分支撑/阻力，不再硬性要求达到 King 的固定比例。", group=groupLevels)
+dynamicSideStrengthRatio = input.float(30.0, "动态同侧强度比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="通用动态筛选中，节点强度至少达到同侧最大节点的比例。", group=groupLevels)
+dynamicShelfStrengthRatio = input.float(50.0, "动态强峰邻近保留比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="当节点不是严格局部峰值，但强度达到同侧最大节点的该比例时，仍保留为支撑/阻力。用于识别紧贴 King 或主墙旁边的次级台阶。", group=groupLevels)
+dynamicMaxLevelsPerSide = input.int(5, "动态每侧最多关键位", minval=1, maxval=12, group=groupLevels)
+dynamicLocalPeaksOnly = input.bool(true, "动态只保留局部峰值", tooltip="开启后，只有强度不低于相邻 strike 的节点才会作为支撑/阻力。", group=groupLevels)
+dynamicSplitByCurrentPrice = input.bool(true, "动态按当前价划分支撑阻力", tooltip="开启后，当前价上方为阻力、下方为支撑；关闭后仍以 King 上下方划分。", group=groupLevels)
+spxKeyFilterMode = input.string("专业筛选", "SPX 支撑阻力筛选", options=["专业筛选", "通用阈值"], tooltip="专业筛选会按当前价上下方分组，只保留同侧强节点、局部峰值，并限制每侧数量。通用阈值则沿用普通 King/阈值逻辑。", group=groupLevels)
+spxSideStrengthRatio = input.float(55.0, "SPX 同侧强度比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="SPX 专业筛选中，节点强度至少达到同侧最大节点的比例。", group=groupLevels)
+spxMaxLevelsPerSide = input.int(4, "SPX 每侧最多关键位", minval=1, maxval=12, group=groupLevels)
+spxLocalPeaksOnly = input.bool(true, "SPX 只保留局部峰值", tooltip="开启后，只有强度不低于相邻 strike 的节点才会作为 SPX 支撑/阻力。", group=groupLevels)
+spxSplitByCurrentPrice = input.bool(true, "SPX 按当前价划分支撑阻力", tooltip="开启后，当前价上方为阻力、下方为支撑；关闭后仍以 King 上下方划分。", group=groupLevels)
+kingColor = input.color(color.rgb(155, 85, 255), "King 紫色", group=groupLevels)
+resistanceColor = input.color(color.rgb(255, 165, 60), "阻力颜色", group=groupLevels)
+supportColor = input.color(color.rgb(38, 180, 255), "支撑颜色", group=groupLevels)
+keyLineWidth = input.int(2, "节点线粗细", minval=1, maxval=5, group=groupLevels)
+kingBandColor = input.color(color.rgb(155, 85, 255), "King 色带颜色", group=groupLevels)
+resistanceBandColor = input.color(color.rgb(255, 165, 60), "阻力色带颜色", group=groupLevels)
+supportBandColor = input.color(color.rgb(38, 180, 255), "支撑色带颜色", group=groupLevels)
+kingBandTransparency = input.int(88, "King 色带透明度", minval=0, maxval=100, group=groupLevels)
+resistanceBandTransparency = input.int(91, "阻力色带透明度", minval=0, maxval=100, group=groupLevels)
+supportBandTransparency = input.int(91, "支撑色带透明度", minval=0, maxval=100, group=groupLevels)
+keyLineTransparency = input.int(0, "节点线透明度", minval=0, maxval=100, group=groupLevels)
+
+// 以下为渲染逻辑（解析 CSV、计算关键节点、绘制柱状图和标签）
+
+var box[] boxes = array.new_box()
+var label[] labels = array.new_label()
+var line[] lines = array.new_line()
+var table summary = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 82), border_color=color.new(color.gray, 82), border_width=1)
+
+cleanToken(string raw) =>
+    string s1 = str.replace_all(raw, " ", "")
+    string s2 = str.replace_all(s1, "\r", "")
+    str.replace_all(s2, "\t", "")
+
+numFromToken(string raw) =>
+    str.tonumber(cleanToken(raw))
+
+fmtGex(float value) =>
+    float av = math.abs(value)
+    string sign = value < 0 ? "-" : ""
+    av == 0.0 ? "$0" : av >= 1.0 ? "$" + sign + str.tostring(av, "#.0") + "B" : "$" + sign + str.tostring(av * 1000.0, "#.0") + "M"
+
+addBox(int xLeft, float yTop, int xRight, float yBottom, color bgFill, color borderCol, int borderWidth) =>
+    box b = box.new(left=xLeft, top=yTop, right=xRight, bottom=yBottom, xloc=xloc.bar_index, bgcolor=bgFill, border_color=borderCol, border_width=math.max(1, borderWidth))
+    array.push(boxes, b)
+
+addLabel(int x, float y, string labelText, color textColor, string labelStyle, string labelSize) =>
+    label l = label.new(x=x, y=y, text=labelText, xloc=xloc.bar_index, yloc=yloc.price, style=labelStyle, color=color.new(color.black, 100), textcolor=textColor, size=labelSize)
+    array.push(labels, l)
+
+addLine(int x1, float y1, int x2, float y2, color lineColor, string lineStyle, int width) =>
+    line ln = line.new(x1=x1, y1=y1, x2=x2, y2=y2, xloc=xloc.bar_index, extend=extend.none, color=lineColor, style=lineStyle, width=width)
+    array.push(lines, ln)
+
+clearDrawings() =>
+    if array.size(boxes) > 0
+        for i = 0 to array.size(boxes) - 1
+            box.delete(array.get(boxes, i))
+        array.clear(boxes)
+    if array.size(labels) > 0
+        for i = 0 to array.size(labels) - 1
+            label.delete(array.get(labels, i))
+        array.clear(labels)
+    if array.size(lines) > 0
+        for i = 0 to array.size(lines) - 1
+            line.delete(array.get(lines, i))
+        array.clear(lines)
+
+showValueLabel(float value) =>
+    labelMode == "全部显示" or (labelMode == "只显示主要" and math.abs(value) >= majorThreshold)
+
+labelSize(string value) =>
+    value == "极小" ? size.tiny : value == "小" ? size.small : value == "正常" ? size.normal : value == "大" ? size.large : size.huge
+
+isNQChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "NQ" or root == "MNQ" or str.contains(ticker, "NAS100") or str.contains(ticker, "US100")
+
+isNDXChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "NDX" or str.contains(ticker, "NDX")
+
+isQQQChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "QQQ" or str.contains(ticker, "QQQ")
+
+isESChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "ES" or root == "MES" or str.contains(ticker, "US500") or str.contains(ticker, "SP500")
+
+isSPXChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "SPX" or str.contains(ticker, "SPX") or str.contains(ticker, "SPX500")
+
+isSPYChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "SPY" or str.contains(ticker, "SPY")
+
+if barstate.islast
+    clearDrawings()
+
+    float[] strikes = array.new_float()
+    float[] rawStrikes = array.new_float()
+    float[] puts = array.new_float()
+    float[] calls = array.new_float()
+    bool qqqFamilyChart = isQQQChart() or isNDXChart() or isNQChart()
+    bool spyFamilyChart = isSPYChart()
+    bool spxFamilyChart = isSPXChart() or isESChart()
+    bool forcedQQQ = mapMode == "QQQ -> NQ"
+    bool forcedSPY = mapMode == "SPY -> ES"
+    bool forcedSPX = mapMode == "SPX -> ES"
+    string sourceName = forcedQQQ ? "QQQ" : forcedSPY ? "SPY" : forcedSPX ? "SPX" : sourceMode != "自动" ? sourceMode : qqqFamilyChart ? "QQQ" : spyFamilyChart ? "SPY" : spxFamilyChart ? "SPX" : "QQQ"
+    string activeGexInput = sourceName == "SPX" ? spxGexInput : sourceName == "SPY" ? spyGexInput : qqqGexInput
+    string[] rows = str.split(activeGexInput, "\n")
+
+    float autoMultiplier = sourceName == "QQQ" ? (isNDXChart() or isNQChart() ? fixedQQQToNQ : 1.0) : sourceName == "SPY" ? (isSPXChart() or isESChart() ? fixedSPYToES : 1.0) : sourceName == "SPX" ? (isESChart() ? fixedSPXToES : 1.0) : 1.0
+    float multiplier = mapMode == "手动倍率" ? manualMultiplier : mapMode == "不转换" ? 1.0 : forcedQQQ ? fixedQQQToNQ : forcedSPY ? fixedSPYToES : forcedSPX ? fixedSPXToES : autoMultiplier
+    float manualMappedGammaFlip = mapGammaFlip ? gammaFlip * multiplier : gammaFlip
+
+    for rowNo = 0 to array.size(rows) - 1
+        string row = cleanToken(array.get(rows, rowNo))
+        string[] parts = str.split(row, ",")
+        if array.size(parts) >= 3
+            float strikeValue = numFromToken(array.get(parts, 0))
+            float putValue = numFromToken(array.get(parts, 1))
+            float callValue = numFromToken(array.get(parts, 2))
+            if not na(strikeValue) and not na(putValue) and not na(callValue)
+                array.push(strikes, strikeValue * multiplier)
+                array.push(rawStrikes, strikeValue)
+                array.push(puts, putValue)
+                array.push(calls, callValue)
+
+    int rowCount = array.size(strikes)
+    if rowCount > 0
+        float maxAbsGex = 0.0
+        float maxCall = 0.0
+        float maxPutAbs = 0.0
+        float kingStrength = 0.0
+        float callWallStrike = na
+        float putWallStrike = na
+        float kingStrike = na
+        float kingSignedGex = na
+        float totalCall = 0.0
+        float totalPut = 0.0
+        float autoGammaFlip = na
+
+        for i = 0 to rowCount - 1
+            float c = array.get(calls, i)
+            float p = array.get(puts, i)
+            float strike = array.get(strikes, i)
+            float nodeStrength = math.max(math.abs(c), math.abs(p))
+            maxAbsGex := math.max(maxAbsGex, math.max(math.abs(c), math.abs(p)))
+            totalCall += c
+            totalPut += p
+            if c > maxCall
+                maxCall := c
+                callWallStrike := strike
+            if math.abs(p) > maxPutAbs
+                maxPutAbs := math.abs(p)
+                putWallStrike := strike
+            if nodeStrength > kingStrength
+                kingStrength := nodeStrength
+                kingStrike := strike
+                kingSignedGex := math.abs(c) >= math.abs(p) ? c : p
+
+        if rowCount > 1
+            for i = 0 to rowCount - 2
+                float strikeA = array.get(strikes, i)
+                float strikeB = array.get(strikes, i + 1)
+                float netA = array.get(calls, i) + array.get(puts, i)
+                float netB = array.get(calls, i + 1) + array.get(puts, i + 1)
+                bool exactA = netA == 0.0
+                bool crosses = (netA > 0.0 and netB < 0.0) or (netA < 0.0 and netB > 0.0)
+                if na(autoGammaFlip) and exactA
+                    autoGammaFlip := strikeA
+                if na(autoGammaFlip) and crosses and netB != netA
+                    autoGammaFlip := strikeA + (0.0 - netA) * (strikeB - strikeA) / (netB - netA)
+
+        maxAbsGex := maxAbsGex == 0.0 ? 1.0 : maxAbsGex
+        float mappedGammaFlip = gammaFlipMode == "自动计算" and not na(autoGammaFlip) ? autoGammaFlip : manualMappedGammaFlip
+        float supportMinStrength = kingStrength * supportKingRatio / 100.0
+        bool useSpxProfessionalFilter = sourceName == "SPX" and spxKeyFilterMode == "专业筛选"
+        bool useDynamicKeyFilter = useSpxProfessionalFilter or (sourceName != "SPX" and dynamicKeyFilterMode == "动态筛选")
+        float activeSideStrengthRatio = useSpxProfessionalFilter ? spxSideStrengthRatio : dynamicSideStrengthRatio
+        float activeShelfStrengthRatio = useSpxProfessionalFilter ? math.max(spxSideStrengthRatio, 65.0) : dynamicShelfStrengthRatio
+        int activeMaxLevelsPerSide = useSpxProfessionalFilter ? spxMaxLevelsPerSide : dynamicMaxLevelsPerSide
+        bool activeLocalPeaksOnly = useSpxProfessionalFilter ? spxLocalPeaksOnly : dynamicLocalPeaksOnly
+        bool activeSplitByCurrentPrice = useSpxProfessionalFilter ? spxSplitByCurrentPrice : dynamicSplitByCurrentPrice
+        float keySplitPrice = useDynamicKeyFilter and activeSplitByCurrentPrice ? close : kingStrike
+        float maxResistanceStrength = 0.0
+        float maxSupportStrength = 0.0
+        if useDynamicKeyFilter
+            for i = 0 to rowCount - 1
+                float sideStrike = array.get(strikes, i)
+                float sideStrength = math.max(math.abs(array.get(calls, i)), math.abs(array.get(puts, i)))
+                if sideStrike > keySplitPrice
+                    maxResistanceStrength := math.max(maxResistanceStrength, sideStrength)
+                if sideStrike < keySplitPrice
+                    maxSupportStrength := math.max(maxSupportStrength, sideStrength)
+        float detectedRowStep = na
+        if rowCount > 1
+            for i = 0 to rowCount - 2
+                float currentStep = math.abs(array.get(strikes, i) - array.get(strikes, i + 1))
+                if currentStep > 0.0
+                    detectedRowStep := na(detectedRowStep) ? currentStep : math.min(detectedRowStep, currentStep)
+        detectedRowStep := na(detectedRowStep) ? math.max(1.0, multiplier) : detectedRowStep
+
+        int rightX = bar_index + anchorBars
+        int maxWidthX = math.max(1, maxWidthBars)
+        int gapX = math.max(1, textGapBars)
+        int lineLeftX = rightX - levelSpanBars
+        int textX = rightX + gapX
+        int keyGapBars = multiplier == 1.0 ? keyAppendGapBars : math.max(keyAppendGapBars, mappedKeyAppendMinBars)
+        int keyTextX = textX + keyGapBars
+
+        float mappedRowHeight = rowHeight * detectedRowStep
+        float upperPad = mappedRowHeight
+        float lowerPad = 0.0
+        float splitGap = mappedRowHeight * rowSplitGapPct
+        float rowMidOffset = mappedRowHeight * 0.5
+
+        if showWallBands
+            addBox(lineLeftX, callWallStrike + upperPad, rightX, callWallStrike - lowerPad, color.new(callColor, 93), color.new(callColor, 100), 1)
+            addBox(lineLeftX, putWallStrike + upperPad, rightX, putWallStrike - lowerPad, color.new(putColor, 93), color.new(putColor, 100), 1)
+
+        if not showKeyNodes
+            addLine(lineLeftX, callWallStrike, rightX, callWallStrike, color.new(callColor, 40), line.style_solid, 1)
+            addLabel(textX, callWallStrike, "Call Wall " + str.tostring(int(callWallStrike)) + "  " + fmtGex(maxCall), callColor, label.style_label_left, size.small)
+        if not showKeyNodes
+            addLine(lineLeftX, putWallStrike, rightX, putWallStrike, color.new(putColor, 40), line.style_solid, 1)
+            addLabel(textX, putWallStrike, "Put Wall " + str.tostring(int(putWallStrike)) + "  " + fmtGex(-maxPutAbs), putColor, label.style_label_left, size.small)
+
+        if showGammaFlip
+            addLine(lineLeftX, mappedGammaFlip, rightX, mappedGammaFlip, color.new(color.aqua, 20), line.style_dashed, 1)
+            addLabel(textX, mappedGammaFlip, "Gamma Flip " + str.tostring(mappedGammaFlip, "#.00"), color.aqua, label.style_label_left, size.small)
+
+        if showKeyNodes
+            for i = 0 to rowCount - 1
+                float strike = array.get(strikes, i)
+                float rawStrike = array.get(rawStrikes, i)
+                float c = array.get(calls, i)
+                float p = array.get(puts, i)
+                float nodeStrength = math.max(math.abs(c), math.abs(p))
+                float signedNodeGex = math.abs(c) >= math.abs(p) ? c : p
+                bool isKing = strike == kingStrike
+                float prevStrength = i > 0 ? math.max(math.abs(array.get(calls, i - 1)), math.abs(array.get(puts, i - 1))) : nodeStrength
+                float nextStrength = i < rowCount - 1 ? math.max(math.abs(array.get(calls, i + 1)), math.abs(array.get(puts, i + 1))) : nodeStrength
+                bool isLocalPeak = not activeLocalPeaksOnly or (nodeStrength >= prevStrength and nodeStrength >= nextStrength)
+                float sideMaxForNode = strike > keySplitPrice ? maxResistanceStrength : strike < keySplitPrice ? maxSupportStrength : kingStrength
+                bool isStrongShelf = useDynamicKeyFilter and sideMaxForNode > 0.0 and nodeStrength >= sideMaxForNode * activeShelfStrengthRatio / 100.0
+                bool passesShapeFilter = isLocalPeak or isStrongShelf
+                int strongerResistanceCount = 0
+                int strongerSupportCount = 0
+                if useDynamicKeyFilter
+                    for j = 0 to rowCount - 1
+                        float compareStrike = array.get(strikes, j)
+                        float compareStrength = math.max(math.abs(array.get(calls, j)), math.abs(array.get(puts, j)))
+                        if compareStrike > keySplitPrice and compareStrength > nodeStrength
+                            strongerResistanceCount += 1
+                        if compareStrike < keySplitPrice and compareStrength > nodeStrength
+                            strongerSupportCount += 1
+                bool isResistanceNode = useDynamicKeyFilter ? strike > keySplitPrice and maxResistanceStrength > 0.0 and nodeStrength >= maxResistanceStrength * activeSideStrengthRatio / 100.0 and passesShapeFilter and strongerResistanceCount < activeMaxLevelsPerSide : strike > kingStrike and nodeStrength >= keyNodeThreshold
+                bool isSupportNode = useDynamicKeyFilter ? strike < keySplitPrice and maxSupportStrength > 0.0 and nodeStrength >= maxSupportStrength * activeSideStrengthRatio / 100.0 and passesShapeFilter and strongerSupportCount < activeMaxLevelsPerSide : strike < kingStrike and nodeStrength >= keyNodeThreshold and nodeStrength >= supportMinStrength
+                bool isBigNode = isResistanceNode or isSupportNode
+                if isKing or isBigNode
+                    color nodeColor = isKing ? kingColor : strike > keySplitPrice ? resistanceColor : supportColor
+                    color bandColor = isKing ? kingBandColor : strike > keySplitPrice ? resistanceBandColor : supportBandColor
+                    int bandTransparency = isKing ? kingBandTransparency : strike > keySplitPrice ? resistanceBandTransparency : supportBandTransparency
+                    string nodeName = isKing ? "King" : strike > keySplitPrice ? "阻力" : "支撑"
+                    int nodeWidth = isKing ? keyLineWidth + 1 : keyLineWidth
+                    addBox(lineLeftX, strike + upperPad, rightX, strike - lowerPad, color.new(bandColor, bandTransparency), color.new(bandColor, 100), 1)
+                    addLine(lineLeftX, strike, rightX, strike, color.new(nodeColor, keyLineTransparency), line.style_solid, nodeWidth)
+
+        for i = 0 to rowCount - 1
+            float strike = array.get(strikes, i)
+            float rawStrike = array.get(rawStrikes, i)
+            float c = array.get(calls, i)
+            float p = array.get(puts, i)
+            bool isKingRow = strike == kingStrike
+            float rowStrength = math.max(math.abs(c), math.abs(p))
+            float prevRowStrength = i > 0 ? math.max(math.abs(array.get(calls, i - 1)), math.abs(array.get(puts, i - 1))) : rowStrength
+            float nextRowStrength = i < rowCount - 1 ? math.max(math.abs(array.get(calls, i + 1)), math.abs(array.get(puts, i + 1))) : rowStrength
+            bool isRowLocalPeak = not activeLocalPeaksOnly or (rowStrength >= prevRowStrength and rowStrength >= nextRowStrength)
+            float sideMaxForRow = strike > keySplitPrice ? maxResistanceStrength : strike < keySplitPrice ? maxSupportStrength : kingStrength
+            bool isStrongRowShelf = useDynamicKeyFilter and sideMaxForRow > 0.0 and rowStrength >= sideMaxForRow * activeShelfStrengthRatio / 100.0
+            bool passesRowShapeFilter = isRowLocalPeak or isStrongRowShelf
+            int strongerResistanceRows = 0
+            int strongerSupportRows = 0
+            if useDynamicKeyFilter
+                for j = 0 to rowCount - 1
+                    float compareStrike = array.get(strikes, j)
+                    float compareStrength = math.max(math.abs(array.get(calls, j)), math.abs(array.get(puts, j)))
+                    if compareStrike > keySplitPrice and compareStrength > rowStrength
+                        strongerResistanceRows += 1
+                    if compareStrike < keySplitPrice and compareStrength > rowStrength
+                        strongerSupportRows += 1
+            bool isResistanceRow = useDynamicKeyFilter ? strike > keySplitPrice and maxResistanceStrength > 0.0 and rowStrength >= maxResistanceStrength * activeSideStrengthRatio / 100.0 and passesRowShapeFilter and strongerResistanceRows < activeMaxLevelsPerSide : strike > kingStrike and rowStrength >= keyNodeThreshold
+            bool isSupportRow = useDynamicKeyFilter ? strike < keySplitPrice and maxSupportStrength > 0.0 and rowStrength >= maxSupportStrength * activeSideStrengthRatio / 100.0 and passesRowShapeFilter and strongerSupportRows < activeMaxLevelsPerSide : strike < kingStrike and rowStrength >= keyNodeThreshold and rowStrength >= supportMinStrength
+            bool isNodeRow = showKeyNodes and (isKingRow or isResistanceRow or isSupportRow)
+
+            float rowMid = strike + rowMidOffset
+            float callTop = strike + upperPad
+            float callBottom = rowMid + splitGap
+            float putTop = rowMid - splitGap
+            float putBottom = strike - lowerPad
+
+            if c > 0.0
+                color callBarColor = isKingRow ? kingColor : callColor
+                int cw = math.max(1, int(math.round(math.abs(c) / maxAbsGex * maxWidthX)))
+                addBox(rightX - cw, callTop, rightX, callBottom, color.new(callBarColor, fillTransparency), color.new(callBarColor, barBorderTransparency), 1)
+                if showValueLabel(c)
+                    addLabel(rightX - cw - gapX, (callTop + callBottom) * 0.5, fmtGex(c), callBarColor, label.style_label_right, size.tiny)
+
+            if p < 0.0
+                color putBarColor = isKingRow ? kingColor : putColor
+                int pw = math.max(1, int(math.round(math.abs(p) / maxAbsGex * maxWidthX)))
+                addBox(rightX - pw, putTop, rightX, putBottom, color.new(putBarColor, fillTransparency), color.new(putBarColor, barBorderTransparency), 1)
+                if showValueLabel(p)
+                    addLabel(rightX - pw - gapX, (putTop + putBottom) * 0.5, fmtGex(p), putBarColor, label.style_label_right, size.tiny)
+
+            if showStrikeLabels
+                float rowSignedGex = math.abs(c) >= math.abs(p) ? c : p
+                string priceLabel = multiplier == 1.0 ? str.tostring(int(strike)) : str.tostring(strike, "#.00") + " (" + str.tostring(int(rawStrike)) + ")"
+                string nodeName = isKingRow ? "King" : strike > keySplitPrice ? "阻力" : "支撑"
+                color keyTextColor = isKingRow ? kingColor : strike > keySplitPrice ? resistanceColor : supportColor
+                addLabel(textX, rowMid, priceLabel, color.new(strikeColorInput, 0), label.style_label_left, labelSize(priceTextSizeInput))
+                if isNodeRow and showKeyText
+                    addLabel(keyTextX, rowMid, nodeName, keyTextColor, label.style_label_left, labelSize(keyTextSizeInput))
+
+        if showSummary
+            table.cell(summary, 0, 0, "GEX 阶梯", text_color=color.white, text_size=size.small)
+            table.cell(summary, 1, 0, "GEX 数据", text_color=color.new(color.white, 20), text_size=size.small)
+            table.cell(summary, 0, 1, "Call 合计", text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 1, 1, fmtGex(totalCall), text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 0, 2, "Put 合计", text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 1, 2, fmtGex(totalPut), text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 0, 3, "净 GEX", text_color=color.white, text_size=size.tiny)
+            table.cell(summary, 1, 3, fmtGex(totalCall + totalPut), text_color=totalCall + totalPut >= 0 ? callColor : putColor, text_size=size.tiny)
+            table.cell(summary, 0, 4, "Call Wall", text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 1, 4, str.tostring(int(callWallStrike)) + "  " + fmtGex(maxCall), text_color=callColor, text_size=size.tiny)
+            table.cell(summary, 0, 5, "Put Wall", text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 1, 5, str.tostring(int(putWallStrike)) + "  " + fmtGex(-maxPutAbs), text_color=putColor, text_size=size.tiny)
+            table.cell(summary, 0, 6, "King", text_color=kingColor, text_size=size.tiny)
+            table.cell(summary, 1, 6, str.tostring(int(kingStrike)) + "  " + fmtGex(kingSignedGex), text_color=kingColor, text_size=size.tiny)
+            if showMappedInfo
+                table.cell(summary, 0, 7, "映射", text_color=color.white, text_size=size.tiny)
+                table.cell(summary, 1, 7, sourceName + " 固定 x" + str.tostring(multiplier, "#.000"), text_color=color.white, text_size=size.tiny)
+```
+
+</Accordion>

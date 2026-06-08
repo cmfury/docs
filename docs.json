@@ -54,7 +54,8 @@
               "dashboard/overview",
               "dashboard/structure-panel",
               "dashboard/heatmap-panel",
-              "dashboard/dealer-chart"
+              "dashboard/dealer-chart",
+              "dashboard/uw-flow"
             ]
           },
           {
@@ -76,6 +77,15 @@
               "replay-lab/strategy-builder",
               "replay-lab/result-panel",
               "replay-lab/chain-snapshot"
+            ]
+          },
+          {
+            "group": "Discord",
+            "pages": [
+              "discord/overview",
+              "discord/flow-alert",
+              "discord/research",
+              "discord/research-reading"
             ]
           },
           {
