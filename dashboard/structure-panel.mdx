@@ -59,3 +59,920 @@ Weekly 分组只展示第一行的持仓结构指标，不包含 Active Call/Put
 - 价格在 Flip **上方**：正 GEX 环境，震荡策略占优
 - 价格在 Flip **下方**：负 GEX 环境，动量策略占优
 - Major Positive 和 Major Negative 之间：当日结构核心区间，价格能否突破这个区间往往决定全天走势
+
+---
+
+## Copy TV CSV — 导出 GEX 数据到 TradingView
+
+结构面板顶部有一个 **Copy TV CSV** 按钮，点击后将当前所有行权价的 GEX 数据复制到剪贴板，格式为 CSV：
+
+```
+strike,put_gex_b,call_gex_b
+600,0.012345,-0.006789
+599,0.008901,-0.003456
+...
+```
+
+- `strike`：行权价
+- `put_gex_b`：该行权价的 Put GEX（单位：十亿美元）
+- `call_gex_b`：该行权价的 Call GEX（单位：十亿美元）
+
+复制后可以粘贴到 TradingView 的自定义指标中使用，把 GEX 节点直接叠加到你的 K 线图上。
+
+---
+
+## 配套 TradingView 指标
+
+以下是 Nightwatch 提供的 TradingView Pine Script 指标，可以直接在 TradingView 中使用。将代码复制到 TradingView 的 Pine Editor 中，点击"添加到图表"即可。
+
+### JM Session Highs and Lows
+
+在 K 线图上自动标出多时段关键价位——亚洲 / 伦敦 / 纽约时段高低点、周一高低点、前一日 / 前一周高低点、日开盘价和午夜开盘价。所有线段实时延伸，被扫过后自动停止。
+
+<Accordion title="Pine Script 完整代码（点击展开）">
+
+```pine
+//@version=6
+indicator("JM Session Highs and Lows", overlay=true, shorttitle="JM Key Levels")
+
+// -----------------------------------------------------------------------------
+// 1. 设置
+// -----------------------------------------------------------------------------
+
+// --- 时区设置 ---
+grp_time    = "时区设置"
+user_tz     = input.string("America/New_York", "本地时区", group=grp_time, tooltip="只影响周一、前一日、前一周相关线。")
+sess_ref_tz = "America/New_York"
+
+// --- 视觉错位 ---
+grp_stag    = "视觉错位（避免重叠）"
+use_stagger = input.bool(true, "错开线和标签", group=grp_stag, tooltip="水平错开标签，减少重叠。")
+stag_step   = input.int(5, "错位步长（K线数量）", minval=1, group=grp_stag)
+
+// --- 交易时段（纽约时间） ---
+asia_time   = input.session("1800-0300", "亚洲时段（期货）", group=grp_time)
+lon_time    = input.session("0300-0930", "伦敦时段（期货）", group=grp_time)
+ny_time     = input.session("0930-1659", "纽约时段（期货）", group=grp_time)
+
+// --- 样式 ---
+grp_style   = "样式"
+show_lbls   = input.bool(true, "显示文字标签", group=grp_style)
+show_price  = input.bool(true, "标签显示价格", group=grp_style)
+txt_size_in = input.string("普通", "文字大小", options=["极小", "小", "普通", "大", "超大"], group=grp_style)
+ln_width    = input.int(1, "线宽", minval=1, maxval=4, group=grp_style)
+
+// --- 通用设置 ---
+grp_gen     = "通用设置"
+show_hist   = input.bool(false, "显示更早历史", group=grp_gen)
+ext_sweeps  = input.bool(true, "扫过后继续延伸", group=grp_gen)
+use_alerts  = input.bool(true, "启用报警", group=grp_gen)
+alert_mode  = input.string("影线触碰", "报警触发方式", options=["影线触碰", "收盘突破"], group=grp_gen)
+
+// --- 颜色 ---
+grp_asia    = "亚洲时段"
+col_asia    = input.color(color.red, "亚洲颜色", group=grp_asia)
+prev_asia   = input.bool(false, "使用上一段亚洲高低点", group=grp_asia)
+
+grp_lon     = "伦敦时段"
+col_lon     = input.color(color.green, "伦敦颜色", group=grp_lon)
+prev_lon    = input.bool(false, "使用上一段伦敦高低点", group=grp_lon)
+
+grp_ny      = "纽约时段"
+col_ny      = input.color(color.orange, "纽约颜色", group=grp_ny)
+prev_ny     = input.bool(true, "使用上一段纽约高低点", group=grp_ny)
+
+grp_mon     = "周一高低点"
+show_mon    = input.bool(true, "显示周一高/低", group=grp_mon)
+col_mon     = input.color(color.yellow, "周一颜色", group=grp_mon)
+
+grp_do      = "日开盘价"
+show_do     = input.bool(true, "显示日开盘价", group=grp_do)
+col_do      = input.color(color.white, "日开盘价颜色", group=grp_do)
+day_sess    = input.session("1800-1700", "日开盘时段", group=grp_do)
+
+grp_pd      = "前一日"
+show_pd     = input.bool(false, "显示前一日高/低", group=grp_pd)
+col_pd      = input.color(color.gray, "前一日高/低颜色", group=grp_pd)
+
+grp_pw      = "前一周"
+show_pw     = input.bool(true, "显示前一周高/低/开盘", group=grp_pw)
+col_pw      = input.color(color.aqua, "前一周颜色", group=grp_pw)
+
+grp_mo      = "午夜开盘价"
+show_mo     = input.bool(true, "显示午夜开盘价", group=grp_mo)
+col_mo      = input.color(color.purple, "午夜开盘价颜色", group=grp_mo)
+
+// -----------------------------------------------------------------------------
+// HELPER TYPES
+// -----------------------------------------------------------------------------
+
+type DynamicLevel
+    float  price
+    int    index
+    line   ln
+    label  lbl
+    bool   is_swept
+    int    sess_id
+    string name
+    color  col
+
+f_get_size(s) =>
+    switch s
+        "极小" => size.tiny
+        "小"   => size.small
+        "普通" => size.normal
+        "大"   => size.large
+        "超大" => size.huge
+        => size.normal
+
+f_lbl_text(name, type_str, price, show_p) =>
+    string txt = name + (type_str != "" ? " " + type_str : "")
+    if show_p
+        txt += " (" + str.tostring(price, format.mintick) + ")"
+    txt
+
+f_trigger_alert(bool condition, string name, string type_str, float price, bool enabled) =>
+    if condition and enabled
+        alert_msg = name + " " + type_str + " Broken at " + str.tostring(price, format.mintick)
+        alert(alert_msg, alert.freq_once_per_bar_close)
+
+// -----------------------------------------------------------------------------
+// CORE SESSION LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_dynamic(bool show, string full_sess, string plot_sess, color c_col, string name, bool show_history, bool ignore_sweeps, bool show_labels, bool use_prev_only, string txt_size_str, int ln_w, bool show_p, bool alert_on, string tzone, string alert_mode, int offset_val) =>
+    bool is_monitoring = not na(time(timeframe.period, full_sess, tzone))
+    bool new_session   = is_monitoring and not is_monitoring[1]
+    bool session_end   = is_monitoring[1] and not is_monitoring
+    bool can_plot      = not na(time(timeframe.period, plot_sess, tzone))
+
+    string lbl_sz = f_get_size(txt_size_str)
+    var int current_sess_id = 0
+    if new_session
+        current_sess_id := time
+
+    var float run_h = na
+    var int   run_h_idx = na
+    var float run_l = na
+    var int   run_l_idx = na
+
+    var DynamicLevel obj_h = na
+    var DynamicLevel obj_l = na
+    var DynamicLevel prev_obj_h = na
+    var DynamicLevel prev_obj_l = na
+
+    if new_session
+        if not na(obj_h)
+            if not show_history and not na(prev_obj_h)
+                line.delete(prev_obj_h.ln)
+                label.delete(prev_obj_h.lbl)
+            prev_obj_h := obj_h
+            if use_prev_only
+                line.set_color(prev_obj_h.ln, c_col)
+                label.set_textcolor(prev_obj_h.lbl, c_col)
+                prev_obj_h.is_swept := false
+
+        if not na(obj_l)
+            if not show_history and not na(prev_obj_l)
+                line.delete(prev_obj_l.ln)
+                label.delete(prev_obj_l.lbl)
+            prev_obj_l := obj_l
+            if use_prev_only
+                line.set_color(prev_obj_l.ln, c_col)
+                label.set_textcolor(prev_obj_l.lbl, c_col)
+                prev_obj_l.is_swept := false
+
+        if not use_prev_only and not show_history
+            if not na(prev_obj_h)
+                line.delete(prev_obj_h.ln)
+                label.delete(prev_obj_h.lbl)
+            if not na(prev_obj_l)
+                line.delete(prev_obj_l.ln)
+                label.delete(prev_obj_l.lbl)
+
+        run_h     := high
+        run_h_idx := bar_index
+        run_l     := low
+        run_l_idx := bar_index
+        obj_h     := na
+        obj_l     := na
+
+    else if session_end and use_prev_only
+        if not na(prev_obj_h)
+            line.set_color(prev_obj_h.ln, na)
+            label.set_textcolor(prev_obj_h.lbl, na)
+        if not na(prev_obj_l)
+            line.set_color(prev_obj_l.ln, na)
+            label.set_textcolor(prev_obj_l.lbl, na)
+
+        if not na(obj_h)
+            line.set_color(obj_h.ln, c_col)
+            label.set_textcolor(obj_h.lbl, c_col)
+        if not na(obj_l)
+            line.set_color(obj_l.ln, c_col)
+            label.set_textcolor(obj_l.lbl, c_col)
+
+    else if is_monitoring
+        if high >= run_h
+            run_h     := high
+            run_h_idx := bar_index
+        if low <= run_l
+            run_l     := low
+            run_l_idx := bar_index
+
+    if show
+        int final_offset = 3 + offset_val
+
+        if use_prev_only
+            if not na(prev_obj_h) and is_monitoring
+                bool crossed = alert_mode == "影线触碰" ? high > prev_obj_h.price : close > prev_obj_h.price
+                if crossed and not prev_obj_h.is_swept
+                    f_trigger_alert(true, name, "Prev High", prev_obj_h.price, alert_on)
+
+                bool visual_cross = high > prev_obj_h.price
+                if not ignore_sweeps and visual_cross
+                    prev_obj_h.is_swept := true
+                if not prev_obj_h.is_swept
+                    line.set_x2(prev_obj_h.ln, bar_index + final_offset)
+                    label.set_x(prev_obj_h.lbl, bar_index + final_offset)
+
+            if not na(prev_obj_l) and is_monitoring
+                bool crossed = alert_mode == "影线触碰" ? low < prev_obj_l.price : close < prev_obj_l.price
+                if crossed and not prev_obj_l.is_swept
+                    f_trigger_alert(true, name, "Prev Low", prev_obj_l.price, alert_on)
+
+                bool visual_cross = low < prev_obj_l.price
+                if not ignore_sweeps and visual_cross
+                    prev_obj_l.is_swept := true
+                if not prev_obj_l.is_swept
+                    line.set_x2(prev_obj_l.ln, bar_index + final_offset)
+                    label.set_x(prev_obj_l.lbl, bar_index + final_offset)
+
+        color draw_col = use_prev_only and is_monitoring ? na : c_col
+        color txt_col  = use_prev_only and is_monitoring ? na : c_col
+
+        if na(obj_h) and (can_plot or (is_monitoring and not na(run_h)))
+            line l = line.new(run_h_idx, run_h, bar_index, run_h, color=draw_col, width=ln_w)
+            string t = f_lbl_text(name, "H", run_h, show_p)
+            label lb = label.new(bar_index, run_h, t, textcolor=txt_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            obj_h := DynamicLevel.new(run_h, run_h_idx, l, lb, false, current_sess_id, name + " H", c_col)
+            if not show_labels
+                label.set_text(lb, "")
+
+        if not na(obj_h)
+            if obj_h.sess_id == current_sess_id
+                if is_monitoring
+                    if run_h > obj_h.price
+                        obj_h.price := run_h
+                        obj_h.index := run_h_idx
+                        line.set_y1(obj_h.ln, run_h)
+                        line.set_y2(obj_h.ln, run_h)
+                        line.set_x1(obj_h.ln, run_h_idx)
+                        label.set_y(obj_h.lbl, run_h)
+                        if show_labels
+                            label.set_text(obj_h.lbl, f_lbl_text(name, "H", run_h, show_p))
+                    line.set_x2(obj_h.ln, bar_index + final_offset)
+                    label.set_x(obj_h.lbl, bar_index + final_offset)
+                else
+                    bool crossed = alert_mode == "影线触碰" ? high > obj_h.price : close > obj_h.price
+                    if crossed and not obj_h.is_swept
+                        f_trigger_alert(true, name, "High", obj_h.price, alert_on)
+
+                    bool visual_cross = high > obj_h.price
+                    if not ignore_sweeps and visual_cross
+                        obj_h.is_swept := true
+                    if not obj_h.is_swept
+                        line.set_x2(obj_h.ln, bar_index + final_offset)
+                        label.set_x(obj_h.lbl, bar_index + final_offset)
+
+            if not use_prev_only or not is_monitoring
+                line.set_color(obj_h.ln, c_col)
+                label.set_textcolor(obj_h.lbl, c_col)
+                label.set_text(obj_h.lbl, f_lbl_text(name, "H", obj_h.price, show_p))
+            if use_prev_only and is_monitoring
+                line.set_color(obj_h.ln, na)
+                label.set_textcolor(obj_h.lbl, na)
+
+        if na(obj_l) and (can_plot or (is_monitoring and not na(run_l)))
+            line l = line.new(run_l_idx, run_l, bar_index, run_l, color=draw_col, width=ln_w)
+            string t = f_lbl_text(name, "L", run_l, show_p)
+            label lb = label.new(bar_index, run_l, t, textcolor=txt_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            obj_l := DynamicLevel.new(run_l, run_l_idx, l, lb, false, current_sess_id, name + " L", c_col)
+            if not show_labels
+                label.set_text(lb, "")
+
+        if not na(obj_l)
+            if obj_l.sess_id == current_sess_id
+                if is_monitoring
+                    if run_l < obj_l.price
+                        obj_l.price := run_l
+                        obj_l.index := run_l_idx
+                        line.set_y1(obj_l.ln, run_l)
+                        line.set_y2(obj_l.ln, run_l)
+                        line.set_x1(obj_l.ln, run_l_idx)
+                        label.set_y(obj_l.lbl, run_l)
+                        if show_labels
+                            label.set_text(obj_l.lbl, f_lbl_text(name, "L", run_l, show_p))
+                    line.set_x2(obj_l.ln, bar_index + final_offset)
+                    label.set_x(obj_l.lbl, bar_index + final_offset)
+                else
+                    bool crossed = alert_mode == "影线触碰" ? low < obj_l.price : close < obj_l.price
+                    if crossed and not obj_l.is_swept
+                        f_trigger_alert(true, name, "Low", obj_l.price, alert_on)
+
+                    bool visual_cross = low < obj_l.price
+                    if not ignore_sweeps and visual_cross
+                        obj_l.is_swept := true
+                    if not obj_l.is_swept
+                        line.set_x2(obj_l.ln, bar_index + final_offset)
+                        label.set_x(obj_l.lbl, bar_index + final_offset)
+
+            if not use_prev_only or not is_monitoring
+                line.set_color(obj_l.ln, c_col)
+                label.set_textcolor(obj_l.lbl, c_col)
+                label.set_text(obj_l.lbl, f_lbl_text(name, "L", obj_l.price, show_p))
+            if use_prev_only and is_monitoring
+                line.set_color(obj_l.ln, na)
+                label.set_textcolor(obj_l.lbl, na)
+
+    DynamicLevel ret_h = na
+    DynamicLevel ret_l = na
+
+    if use_prev_only
+        if not na(prev_obj_h) and not prev_obj_h.is_swept
+            ret_h := prev_obj_h
+            ret_h.name := name + " Prev H"
+            ret_h.col := c_col
+        if not na(prev_obj_l) and not prev_obj_l.is_swept
+            ret_l := prev_obj_l
+            ret_l.name := name + " Prev L"
+            ret_l.col := c_col
+    else
+        if not na(obj_h) and not obj_h.is_swept
+            ret_h := obj_h
+        if not na(obj_l) and not obj_l.is_swept
+            ret_l := obj_l
+
+    [ret_h, ret_l]
+
+// -----------------------------------------------------------------------------
+// DAILY OPEN LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_open(bool show, color c_col, bool show_history, bool show_labels, string txt_size_str, int ln_w, bool show_p, string sess_spec, string tzone, int offset_val) =>
+    int t = time("D", sess_spec, tzone)
+    bool new_day_start = not na(t) and t != t[1]
+
+    var line  l_open = na
+    var label lb_open = na
+    string lbl_sz = f_get_size(txt_size_str)
+    var float day_open_price = na
+
+    if new_day_start
+        day_open_price := open
+        if not show_history
+            line.delete(l_open)
+            label.delete(lb_open)
+
+        if show
+            l_open := line.new(bar_index, day_open_price, bar_index, day_open_price, color=c_col, width=ln_w)
+            string t_lbl = f_lbl_text("Day", "Open", day_open_price, show_p)
+            lb_open := label.new(bar_index, day_open_price, t_lbl, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            if not show_labels
+                label.set_text(lb_open, "")
+
+    int final_offset = 3 + offset_val
+    if show and not na(l_open)
+        line.set_x2(l_open, bar_index + final_offset)
+        label.set_x(lb_open, bar_index + final_offset)
+        line.set_color(l_open, c_col)
+        label.set_textcolor(lb_open, c_col)
+        label.set_text(lb_open, f_lbl_text("Day", "Open", day_open_price, show_p))
+
+    DynamicLevel ret = na
+    if show and not na(l_open)
+        ret := DynamicLevel.new(day_open_price, bar_index, l_open, lb_open, false, 0, "Day Open", c_col)
+    ret
+
+// -----------------------------------------------------------------------------
+// PD LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_pd(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string alert_mode, string tzone, int offset_val) =>
+    int d = dayofmonth(time, tzone)
+    bool new_day = d != d[1]
+
+    var float run_h = high
+    var float run_l = low
+    var float pdh = na
+    var float pdl = na
+
+    if new_day
+        pdh := run_h
+        pdl := run_l
+        run_h := high
+        run_l := low
+    else
+        run_h := math.max(run_h, high)
+        run_l := math.min(run_l, low)
+
+    string lbl_sz = f_get_size(txt_size_str)
+    var int day_id = 0
+    if new_day
+        day_id := time
+
+    var line  l_pdh = na
+    var line  l_pdl = na
+    var label lb_pdh = na
+    var label lb_pdl = na
+    var int id_pdh = 0
+    var int id_pdl = 0
+    var bool pdh_swept = false
+    var bool pdl_swept = false
+
+    if not na(l_pdh) and id_pdh != day_id
+        if not show_history
+            line.delete(l_pdh)
+            label.delete(lb_pdh)
+        else
+            line.set_x2(l_pdh, bar_index[1])
+            label.set_x(lb_pdh, bar_index[1])
+        l_pdh := na
+
+    if not na(l_pdl) and id_pdl != day_id
+        if not show_history
+            line.delete(l_pdl)
+            label.delete(lb_pdl)
+        else
+            line.set_x2(l_pdl, bar_index[1])
+            label.set_x(lb_pdl, bar_index[1])
+        l_pdl := na
+
+    if show and not na(pdh) and na(l_pdh)
+        l_pdh := line.new(bar_index, pdh, bar_index, pdh, color=c_col, width=ln_w)
+        string t = f_lbl_text("PD", "H", pdh, show_p)
+        lb_pdh := label.new(bar_index, pdh, t, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+        if not show_labels
+            label.set_text(lb_pdh, "")
+        id_pdh := day_id
+        pdh_swept := false
+
+    if show and not na(pdl) and na(l_pdl)
+        l_pdl := line.new(bar_index, pdl, bar_index, pdl, color=c_col, width=ln_w)
+        string t = f_lbl_text("PD", "L", pdl, show_p)
+        lb_pdl := label.new(bar_index, pdl, t, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+        if not show_labels
+            label.set_text(lb_pdl, "")
+        id_pdl := day_id
+        pdl_swept := false
+
+    int final_offset = 3 + offset_val
+    bool pdh_active = false
+    bool pdl_active = false
+
+    if not na(l_pdh) and id_pdh == day_id
+        bool stop_ext = false
+        bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_pdh) : close > line.get_y1(l_pdh)
+        if crossed and not pdh_swept
+            f_trigger_alert(true, "PD", "High", line.get_y1(l_pdh), alert_on)
+            pdh_swept := true
+        if not ignore_sweeps and high > line.get_y1(l_pdh)
+            stop_ext := true
+        if not stop_ext
+            line.set_x2(l_pdh, bar_index + final_offset)
+            label.set_x(lb_pdh, bar_index + final_offset)
+            pdh_active := true
+            line.set_color(l_pdh, c_col)
+            label.set_textcolor(lb_pdh, c_col)
+            label.set_text(lb_pdh, f_lbl_text("PD", "H", pdh, show_p))
+
+    if not na(l_pdl) and id_pdl == day_id
+        bool stop_ext = false
+        bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_pdl) : close < line.get_y1(l_pdl)
+        if crossed and not pdl_swept
+            f_trigger_alert(true, "PD", "Low", line.get_y1(l_pdl), alert_on)
+            pdl_swept := true
+        if not ignore_sweeps and low < line.get_y1(l_pdl)
+            stop_ext := true
+        if not stop_ext
+            line.set_x2(l_pdl, bar_index + final_offset)
+            label.set_x(lb_pdl, bar_index + final_offset)
+            pdl_active := true
+            line.set_color(l_pdl, c_col)
+            label.set_textcolor(lb_pdl, c_col)
+            label.set_text(lb_pdl, f_lbl_text("PD", "L", pdl, show_p))
+
+    DynamicLevel ret_h = na
+    DynamicLevel ret_l = na
+    if pdh_active
+        ret_h := DynamicLevel.new(pdh, bar_index, l_pdh, lb_pdh, pdh_swept, id_pdh, "PD H", c_col)
+    if pdl_active
+        ret_l := DynamicLevel.new(pdl, bar_index, l_pdl, lb_pdl, pdl_swept, id_pdl, "PD L", c_col)
+
+    [ret_h, ret_l]
+
+// -----------------------------------------------------------------------------
+// PREVIOUS WEEK LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_pw(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string alert_mode, string tzone, int offset_val) =>
+    int w = weekofyear(time, tzone)
+    int y = year(time, tzone)
+    bool new_week = w != w[1] or y != y[1]
+
+    var float run_h = high
+    var float run_l = low
+    var float run_o = open
+
+    var float pwh = na
+    var float pwl = na
+    var float pwo = na
+
+    if new_week
+        pwh := run_h
+        pwl := run_l
+        pwo := run_o
+        run_h := high
+        run_l := low
+        run_o := open
+    else
+        run_h := math.max(run_h, high)
+        run_l := math.min(run_l, low)
+
+    string lbl_sz = f_get_size(txt_size_str)
+
+    var int week_id = 0
+    if new_week
+        week_id := time
+
+    var line  l_pwh = na
+    var line  l_pwl = na
+    var line  l_pwo = na
+    var label lb_pwh = na
+    var label lb_pwl = na
+    var label lb_pwo = na
+    var int id_pwh = 0
+    var int id_pwl = 0
+    var int id_pwo = 0
+    var bool pwh_swept = false
+    var bool pwl_swept = false
+
+    if not na(l_pwh) and id_pwh != week_id
+        if not show_history
+            line.delete(l_pwh)
+            label.delete(lb_pwh)
+        else
+            line.set_x2(l_pwh, bar_index[1])
+            label.set_x(lb_pwh, bar_index[1])
+        l_pwh := na
+
+    if not na(l_pwl) and id_pwl != week_id
+        if not show_history
+            line.delete(l_pwl)
+            label.delete(lb_pwl)
+        else
+            line.set_x2(l_pwl, bar_index[1])
+            label.set_x(lb_pwl, bar_index[1])
+        l_pwl := na
+
+    if not na(l_pwo) and id_pwo != week_id
+        if not show_history
+            line.delete(l_pwo)
+            label.delete(lb_pwo)
+        else
+            line.set_x2(l_pwo, bar_index[1])
+            label.set_x(lb_pwo, bar_index[1])
+        l_pwo := na
+
+    if show and not na(pwh) and na(l_pwh)
+        l_pwh := line.new(bar_index, pwh, bar_index, pwh, color=c_col, width=ln_w)
+        lb_pwh := label.new(bar_index, pwh, f_lbl_text("PW", "H", pwh, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+        if not show_labels
+            label.set_text(lb_pwh, "")
+        id_pwh := week_id
+        pwh_swept := false
+
+    if show and not na(pwl) and na(l_pwl)
+        l_pwl := line.new(bar_index, pwl, bar_index, pwl, color=c_col, width=ln_w)
+        lb_pwl := label.new(bar_index, pwl, f_lbl_text("PW", "L", pwl, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+        if not show_labels
+            label.set_text(lb_pwl, "")
+        id_pwl := week_id
+        pwl_swept := false
+
+    if show and not na(pwo) and na(l_pwo)
+        l_pwo := line.new(bar_index, pwo, bar_index, pwo, color=c_col, width=ln_w)
+        lb_pwo := label.new(bar_index, pwo, f_lbl_text("PW", "O", pwo, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+        if not show_labels
+            label.set_text(lb_pwo, "")
+        id_pwo := week_id
+
+    int final_offset = 3 + offset_val
+    bool pwh_active = false
+    bool pwl_active = false
+    bool pwo_active = false
+
+    if not na(l_pwh) and id_pwh == week_id
+        bool stop_ext = false
+        bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_pwh) : close > line.get_y1(l_pwh)
+        if crossed and not pwh_swept
+            f_trigger_alert(true, "PW", "High", line.get_y1(l_pwh), alert_on)
+            pwh_swept := true
+        if not ignore_sweeps and high > line.get_y1(l_pwh)
+            stop_ext := true
+        if not stop_ext
+            line.set_x2(l_pwh, bar_index + final_offset)
+            label.set_x(lb_pwh, bar_index + final_offset)
+            pwh_active := true
+            line.set_color(l_pwh, c_col)
+            label.set_textcolor(lb_pwh, c_col)
+            label.set_text(lb_pwh, f_lbl_text("PW", "H", pwh, show_p))
+
+    if not na(l_pwl) and id_pwl == week_id
+        bool stop_ext = false
+        bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_pwl) : close < line.get_y1(l_pwl)
+        if crossed and not pwl_swept
+            f_trigger_alert(true, "PW", "Low", line.get_y1(l_pwl), alert_on)
+            pwl_swept := true
+        if not ignore_sweeps and low < line.get_y1(l_pwl)
+            stop_ext := true
+        if not stop_ext
+            line.set_x2(l_pwl, bar_index + final_offset)
+            label.set_x(lb_pwl, bar_index + final_offset)
+            pwl_active := true
+            line.set_color(l_pwl, c_col)
+            label.set_textcolor(lb_pwl, c_col)
+            label.set_text(lb_pwl, f_lbl_text("PW", "L", pwl, show_p))
+
+    if not na(l_pwo) and id_pwo == week_id
+        line.set_x2(l_pwo, bar_index + final_offset)
+        label.set_x(lb_pwo, bar_index + final_offset)
+        pwo_active := true
+        line.set_color(l_pwo, c_col)
+        label.set_textcolor(lb_pwo, c_col)
+        label.set_text(lb_pwo, f_lbl_text("PW", "O", pwo, show_p))
+
+    DynamicLevel ret_h = na
+    DynamicLevel ret_l = na
+    DynamicLevel ret_o = na
+
+    if pwh_active
+        ret_h := DynamicLevel.new(pwh, bar_index, l_pwh, lb_pwh, pwh_swept, id_pwh, "PW H", c_col)
+    if pwl_active
+        ret_l := DynamicLevel.new(pwl, bar_index, l_pwl, lb_pwl, pwl_swept, id_pwl, "PW L", c_col)
+    if pwo_active
+        ret_o := DynamicLevel.new(pwo, bar_index, l_pwo, lb_pwo, false, id_pwo, "PW O", c_col)
+
+    [ret_h, ret_l, ret_o]
+
+// -----------------------------------------------------------------------------
+// MONDAY LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_monday(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string tzone, string alert_mode, int offset_val) =>
+    int d = dayofweek(time, tzone)
+    bool is_mon = d == dayofweek.monday
+    int d_prev = dayofweek(time[1], tzone)
+    bool new_mon_bar = is_mon and d_prev != dayofweek.monday
+    bool end_mon_bar = not is_mon and d_prev == dayofweek.monday
+
+    var float cur_h = na
+    var int cur_h_idx = na
+    var float cur_l = na
+    var int cur_l_idx = na
+
+    if new_mon_bar or (is_mon and na(cur_h))
+        cur_h := high
+        cur_h_idx := bar_index
+        cur_l := low
+        cur_l_idx := bar_index
+    else if is_mon
+        if high > cur_h
+            cur_h := high
+            cur_h_idx := bar_index
+        if low < cur_l
+            cur_l := low
+            cur_l_idx := bar_index
+
+    var line  l_mh = na
+    var line  l_ml = na
+    var label lb_mh = na
+    var label lb_ml = na
+    var bool mh_swept = false
+    var bool ml_swept = false
+    string lbl_sz = f_get_size(txt_size_str)
+
+    if end_mon_bar
+        if not show_history
+            line.delete(l_mh)
+            label.delete(lb_mh)
+            line.delete(l_ml)
+            label.delete(lb_ml)
+
+        if show
+            l_mh := line.new(cur_h_idx, cur_h, bar_index, cur_h, color=c_col, width=ln_w)
+            string th = f_lbl_text("Mon", "H", cur_h, show_p)
+            lb_mh := label.new(bar_index, cur_h, th, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            if not show_labels
+                label.set_text(lb_mh, "")
+
+            l_ml := line.new(cur_l_idx, cur_l, bar_index, cur_l, color=c_col, width=ln_w)
+            string tl = f_lbl_text("Mon", "L", cur_l, show_p)
+            lb_ml := label.new(bar_index, cur_l, tl, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            if not show_labels
+                label.set_text(lb_ml, "")
+
+            mh_swept := false
+            ml_swept := false
+
+    int final_offset = 3 + offset_val
+    bool mh_active = false
+    bool ml_active = false
+
+    if show
+        if not na(l_mh)
+            bool stop_ext = false
+            bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_mh) : close > line.get_y1(l_mh)
+            if crossed and not mh_swept
+                f_trigger_alert(true, "Mon", "High", line.get_y1(l_mh), alert_on)
+                mh_swept := true
+            if not ignore_sweeps and high > line.get_y1(l_mh)
+                stop_ext := true
+            if not stop_ext
+                line.set_x2(l_mh, bar_index + final_offset)
+                label.set_x(lb_mh, bar_index + final_offset)
+                mh_active := true
+                line.set_color(l_mh, c_col)
+                label.set_textcolor(lb_mh, c_col)
+                label.set_text(lb_mh, f_lbl_text("Mon", "H", cur_h, show_p))
+
+        if not na(l_ml)
+            bool stop_ext = false
+            bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_ml) : close < line.get_y1(l_ml)
+            if crossed and not ml_swept
+                f_trigger_alert(true, "Mon", "Low", line.get_y1(l_ml), alert_on)
+                ml_swept := true
+            if not ignore_sweeps and low < line.get_y1(l_ml)
+                stop_ext := true
+            if not stop_ext
+                line.set_x2(l_ml, bar_index + final_offset)
+                label.set_x(lb_ml, bar_index + final_offset)
+                ml_active := true
+                line.set_color(l_ml, c_col)
+                label.set_textcolor(lb_ml, c_col)
+                label.set_text(lb_ml, f_lbl_text("Mon", "L", cur_l, show_p))
+
+    DynamicLevel ret_h = na
+    DynamicLevel ret_l = na
+    if mh_active
+        ret_h := DynamicLevel.new(cur_h, cur_h_idx, l_mh, lb_mh, mh_swept, 0, "Mon H", c_col)
+    if ml_active
+        ret_l := DynamicLevel.new(cur_l, cur_l_idx, l_ml, lb_ml, ml_swept, 0, "Mon L", c_col)
+
+    [ret_h, ret_l]
+
+// -----------------------------------------------------------------------------
+// MIDNIGHT OPEN LOGIC
+// -----------------------------------------------------------------------------
+
+f_manage_midnight(bool show, color c_col, bool show_history, bool show_labels, string txt_size_str, int ln_w, bool show_p, int offset_val) =>
+    bool is_midnight = hour(time, "America/New_York") == 0 and hour(time[1], "America/New_York") != 0
+
+    var line  l_mo     = na
+    var label lb_mo    = na
+    var float mo_price = na
+    string lbl_sz = f_get_size(txt_size_str)
+
+    if is_midnight
+        mo_price := open
+        if not show_history
+            line.delete(l_mo)
+            label.delete(lb_mo)
+        if show
+            l_mo := line.new(bar_index, mo_price, bar_index, mo_price, color=c_col, width=ln_w)
+            lb_mo := label.new(bar_index, mo_price, f_lbl_text("Mid", "Open", mo_price, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
+            if not show_labels
+                label.set_text(lb_mo, "")
+
+    int final_offset = 3 + offset_val
+    if show and not na(l_mo)
+        line.set_x2(l_mo, bar_index + final_offset)
+        label.set_x(lb_mo, bar_index + final_offset)
+        line.set_color(l_mo, c_col)
+        label.set_textcolor(lb_mo, c_col)
+        label.set_text(lb_mo, f_lbl_text("Mid", "Open", mo_price, show_p))
+
+    DynamicLevel ret = na
+    if show and not na(l_mo)
+        ret := DynamicLevel.new(mo_price, bar_index, l_mo, lb_mo, false, 0, "Mid Open", c_col)
+    ret
+
+// -----------------------------------------------------------------------------
+// MERGE UTILS
+// -----------------------------------------------------------------------------
+
+f_merge_overlaps(DynamicLevel[] levels) =>
+    int sz = array.size(levels)
+    if sz > 1
+        for i = 0 to sz - 2
+            DynamicLevel lvl_i = array.get(levels, i)
+            if not na(lvl_i)
+                for j = i + 1 to sz - 1
+                    DynamicLevel lvl_j = array.get(levels, j)
+                    if not na(lvl_j)
+                        if lvl_i.price == lvl_j.price
+                            string combined_name = lvl_i.name + " / " + lvl_j.name
+                            lvl_i.name := combined_name
+                            string new_txt = f_lbl_text(combined_name, "", lvl_i.price, show_price)
+                            label.set_text(lvl_i.lbl, new_txt)
+                            line.set_color(lvl_j.ln, na)
+                            label.set_textcolor(lvl_j.lbl, na)
+                            label.set_text(lvl_j.lbl, "")
+
+// -----------------------------------------------------------------------------
+// PLOTTING & EXECUTION
+// -----------------------------------------------------------------------------
+
+s_1 = use_stagger ? stag_step * 1 : 0
+s_2 = use_stagger ? stag_step * 2 : 0
+s_3 = use_stagger ? stag_step * 3 : 0
+s_4 = use_stagger ? stag_step * 4 : 0
+s_5 = use_stagger ? stag_step * 5 : 0
+s_6 = use_stagger ? stag_step * 6 : 0
+
+var DynamicLevel[] active_levels = array.new<DynamicLevel>()
+array.clear(active_levels)
+
+// 0. 午夜开盘价
+DynamicLevel mo_lvl = f_manage_midnight(show_mo, col_mo, show_hist, show_lbls, txt_size_in, ln_width, show_price, 0)
+if not na(mo_lvl)
+    array.push(active_levels, mo_lvl)
+
+// 1. 日开盘价
+DynamicLevel do_lvl = f_manage_open(show_do, col_do, show_hist, show_lbls, txt_size_in, ln_width, show_price, day_sess, sess_ref_tz, s_5)
+if not na(do_lvl)
+    array.push(active_levels, do_lvl)
+
+// 2. 周一高低点
+[mon_h, mon_l] = f_manage_monday(show_mon, col_mon, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, user_tz, alert_mode, s_4)
+if not na(mon_h)
+    array.push(active_levels, mon_h)
+if not na(mon_l)
+    array.push(active_levels, mon_l)
+
+// 3. 前一周高低开
+[pw_h, pw_l, pw_o] = f_manage_pw(show_pw, col_pw, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, alert_mode, user_tz, s_6)
+if not na(pw_h)
+    array.push(active_levels, pw_h)
+if not na(pw_l)
+    array.push(active_levels, pw_l)
+if not na(pw_o)
+    array.push(active_levels, pw_o)
+
+// 4. 前一日高低点
+[pd_h, pd_l] = f_manage_pd(show_pd, col_pd, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, alert_mode, user_tz, s_3)
+if not na(pd_h)
+    array.push(active_levels, pd_h)
+if not na(pd_l)
+    array.push(active_levels, pd_l)
+
+// 5. 亚洲时段
+[asia_h, asia_l] = f_manage_dynamic(true, asia_time, asia_time, col_asia, "Asia", show_hist, ext_sweeps, show_lbls, prev_asia, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_1)
+if not na(asia_h)
+    array.push(active_levels, asia_h)
+if not na(asia_l)
+    array.push(active_levels, asia_l)
+
+// 6. 伦敦时段
+[lon_h, lon_l] = f_manage_dynamic(true, lon_time, lon_time, col_lon, "Lon", show_hist, ext_sweeps, show_lbls, prev_lon, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_2)
+if not na(lon_h)
+    array.push(active_levels, lon_h)
+if not na(lon_l)
+    array.push(active_levels, lon_l)
+
+// 7. 纽约时段
+[ny_h, ny_l] = f_manage_dynamic(true, ny_time, ny_time, col_ny, "NY", show_hist, ext_sweeps, show_lbls, prev_ny, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_3)
+if not na(ny_h)
+    array.push(active_levels, ny_h)
+if not na(ny_l)
+    array.push(active_levels, ny_l)
+
+// 合并重叠价位
+f_merge_overlaps(active_levels)
+```
+
+</Accordion>
+
+**功能概览**：
+
+| 关键价位 | 颜色（默认） | 说明 |
+|----------|-------------|------|
+| 亚洲时段 H/L | 红色 | 期货 18:00–03:00 ET |
+| 伦敦时段 H/L | 绿色 | 期货 03:00–09:30 ET |
+| 纽约时段 H/L | 橙色 | 期货 09:30–16:59 ET |
+| 周一 H/L | 黄色 | 本周周一的高低点 |
+| 前一周 H/L/Open | 青色 | 上周高低点和开盘价 |
+| 日开盘价 | 白色 | 当日开盘价（期货时段） |
+| 午夜开盘价 | 紫色 | 美东午夜 00:00 的开盘价 |
+
+所有线段在价格被扫过后自动停止延伸（可配置为继续延伸）。重叠价位自动合并标签。
