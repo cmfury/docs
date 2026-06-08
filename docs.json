@@ -90,7 +90,7 @@
           },
           {
             "group": "帮助",
-            "pages": ["subscription", "faq", "roadmap"]
+            "pages": ["faq", "roadmap"]
           }
         ]
       }
