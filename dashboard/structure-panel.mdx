@@ -81,898 +81,274 @@ strike,put_gex_b,call_gex_b
 
 ---
 
-## 配套 TradingView 指标
+## 配套 TradingView 指标：Alogs GEX 磁吸阶梯
 
-以下是 Nightwatch 提供的 TradingView Pine Script 指标，可以直接在 TradingView 中使用。将代码复制到 TradingView 的 Pine Editor 中，点击"添加到图表"即可。
+将 Copy TV CSV 复制的数据粘贴到这个指标的输入框中，即可在 TradingView K 线图上直接叠加 GEX 结构——King 节点、支撑/阻力、Gamma Flip、Call/Put Wall 一目了然。
 
-### JM Session Highs and Lows
+### 使用步骤
 
-在 K 线图上自动标出多时段关键价位——亚洲 / 伦敦 / 纽约时段高低点、周一高低点、前一日 / 前一周高低点、日开盘价和午夜开盘价。所有线段实时延伸，被扫过后自动停止。
+1. 在 Nightwatch Standard 视图的结构面板点击 **Copy TV CSV**
+2. 打开 TradingView，进入 Pine Editor，粘贴下方代码并添加到图表
+3. 点击指标设置（齿轮图标），在"数据"栏的对应输入框（QQQ / SPY / SPX）中粘贴刚才复制的 CSV
+4. 指标会自动解析数据并在图表上绘制 GEX 柱状图和关键价位
+
+### 主要功能
+
+- **GEX 柱状图**：每个行权价显示 Call（绿色）和 Put（红色）的 GEX 强度
+- **King 节点**：紫色标记当前最强的 GEX 聚集价位
+- **支撑 / 阻力**：蓝色支撑、橙色阻力，基于 GEX 强度动态筛选
+- **Gamma Flip**：自动计算净 GEX 零轴穿越点，虚线标注
+- **Call Wall / Put Wall**：Call 和 Put 持仓最集中的行权价
+- **价格映射**：自动将 QQQ→NQ/MNQ、SPY→ES/MES、SPX→ES 的行权价映射到期货图表
+
 
 <Accordion title="Pine Script 完整代码（点击展开）">
 
 ```pine
 //@version=6
-indicator("JM Session Highs and Lows", overlay=true, shorttitle="JM Key Levels")
-
-// -----------------------------------------------------------------------------
-// 1. 设置
-// -----------------------------------------------------------------------------
-
-// --- 时区设置 ---
-grp_time    = "时区设置"
-user_tz     = input.string("America/New_York", "本地时区", group=grp_time, tooltip="只影响周一、前一日、前一周相关线。")
-sess_ref_tz = "America/New_York"
-
-// --- 视觉错位 ---
-grp_stag    = "视觉错位（避免重叠）"
-use_stagger = input.bool(true, "错开线和标签", group=grp_stag, tooltip="水平错开标签，减少重叠。")
-stag_step   = input.int(5, "错位步长（K线数量）", minval=1, group=grp_stag)
-
-// --- 交易时段（纽约时间） ---
-asia_time   = input.session("1800-0300", "亚洲时段（期货）", group=grp_time)
-lon_time    = input.session("0300-0930", "伦敦时段（期货）", group=grp_time)
-ny_time     = input.session("0930-1659", "纽约时段（期货）", group=grp_time)
-
-// --- 样式 ---
-grp_style   = "样式"
-show_lbls   = input.bool(true, "显示文字标签", group=grp_style)
-show_price  = input.bool(true, "标签显示价格", group=grp_style)
-txt_size_in = input.string("普通", "文字大小", options=["极小", "小", "普通", "大", "超大"], group=grp_style)
-ln_width    = input.int(1, "线宽", minval=1, maxval=4, group=grp_style)
-
-// --- 通用设置 ---
-grp_gen     = "通用设置"
-show_hist   = input.bool(false, "显示更早历史", group=grp_gen)
-ext_sweeps  = input.bool(true, "扫过后继续延伸", group=grp_gen)
-use_alerts  = input.bool(true, "启用报警", group=grp_gen)
-alert_mode  = input.string("影线触碰", "报警触发方式", options=["影线触碰", "收盘突破"], group=grp_gen)
-
-// --- 颜色 ---
-grp_asia    = "亚洲时段"
-col_asia    = input.color(color.red, "亚洲颜色", group=grp_asia)
-prev_asia   = input.bool(false, "使用上一段亚洲高低点", group=grp_asia)
-
-grp_lon     = "伦敦时段"
-col_lon     = input.color(color.green, "伦敦颜色", group=grp_lon)
-prev_lon    = input.bool(false, "使用上一段伦敦高低点", group=grp_lon)
-
-grp_ny      = "纽约时段"
-col_ny      = input.color(color.orange, "纽约颜色", group=grp_ny)
-prev_ny     = input.bool(true, "使用上一段纽约高低点", group=grp_ny)
-
-grp_mon     = "周一高低点"
-show_mon    = input.bool(true, "显示周一高/低", group=grp_mon)
-col_mon     = input.color(color.yellow, "周一颜色", group=grp_mon)
-
-grp_do      = "日开盘价"
-show_do     = input.bool(true, "显示日开盘价", group=grp_do)
-col_do      = input.color(color.white, "日开盘价颜色", group=grp_do)
-day_sess    = input.session("1800-1700", "日开盘时段", group=grp_do)
-
-grp_pd      = "前一日"
-show_pd     = input.bool(false, "显示前一日高/低", group=grp_pd)
-col_pd      = input.color(color.gray, "前一日高/低颜色", group=grp_pd)
-
-grp_pw      = "前一周"
-show_pw     = input.bool(true, "显示前一周高/低/开盘", group=grp_pw)
-col_pw      = input.color(color.aqua, "前一周颜色", group=grp_pw)
-
-grp_mo      = "午夜开盘价"
-show_mo     = input.bool(true, "显示午夜开盘价", group=grp_mo)
-col_mo      = input.color(color.purple, "午夜开盘价颜色", group=grp_mo)
-
-// -----------------------------------------------------------------------------
-// HELPER TYPES
-// -----------------------------------------------------------------------------
-
-type DynamicLevel
-    float  price
-    int    index
-    line   ln
-    label  lbl
-    bool   is_swept
-    int    sess_id
-    string name
-    color  col
-
-f_get_size(s) =>
-    switch s
-        "极小" => size.tiny
-        "小"   => size.small
-        "普通" => size.normal
-        "大"   => size.large
-        "超大" => size.huge
-        => size.normal
-
-f_lbl_text(name, type_str, price, show_p) =>
-    string txt = name + (type_str != "" ? " " + type_str : "")
-    if show_p
-        txt += " (" + str.tostring(price, format.mintick) + ")"
-    txt
-
-f_trigger_alert(bool condition, string name, string type_str, float price, bool enabled) =>
-    if condition and enabled
-        alert_msg = name + " " + type_str + " Broken at " + str.tostring(price, format.mintick)
-        alert(alert_msg, alert.freq_once_per_bar_close)
-
-// -----------------------------------------------------------------------------
-// CORE SESSION LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_dynamic(bool show, string full_sess, string plot_sess, color c_col, string name, bool show_history, bool ignore_sweeps, bool show_labels, bool use_prev_only, string txt_size_str, int ln_w, bool show_p, bool alert_on, string tzone, string alert_mode, int offset_val) =>
-    bool is_monitoring = not na(time(timeframe.period, full_sess, tzone))
-    bool new_session   = is_monitoring and not is_monitoring[1]
-    bool session_end   = is_monitoring[1] and not is_monitoring
-    bool can_plot      = not na(time(timeframe.period, plot_sess, tzone))
-
-    string lbl_sz = f_get_size(txt_size_str)
-    var int current_sess_id = 0
-    if new_session
-        current_sess_id := time
-
-    var float run_h = na
-    var int   run_h_idx = na
-    var float run_l = na
-    var int   run_l_idx = na
-
-    var DynamicLevel obj_h = na
-    var DynamicLevel obj_l = na
-    var DynamicLevel prev_obj_h = na
-    var DynamicLevel prev_obj_l = na
-
-    if new_session
-        if not na(obj_h)
-            if not show_history and not na(prev_obj_h)
-                line.delete(prev_obj_h.ln)
-                label.delete(prev_obj_h.lbl)
-            prev_obj_h := obj_h
-            if use_prev_only
-                line.set_color(prev_obj_h.ln, c_col)
-                label.set_textcolor(prev_obj_h.lbl, c_col)
-                prev_obj_h.is_swept := false
-
-        if not na(obj_l)
-            if not show_history and not na(prev_obj_l)
-                line.delete(prev_obj_l.ln)
-                label.delete(prev_obj_l.lbl)
-            prev_obj_l := obj_l
-            if use_prev_only
-                line.set_color(prev_obj_l.ln, c_col)
-                label.set_textcolor(prev_obj_l.lbl, c_col)
-                prev_obj_l.is_swept := false
-
-        if not use_prev_only and not show_history
-            if not na(prev_obj_h)
-                line.delete(prev_obj_h.ln)
-                label.delete(prev_obj_h.lbl)
-            if not na(prev_obj_l)
-                line.delete(prev_obj_l.ln)
-                label.delete(prev_obj_l.lbl)
-
-        run_h     := high
-        run_h_idx := bar_index
-        run_l     := low
-        run_l_idx := bar_index
-        obj_h     := na
-        obj_l     := na
-
-    else if session_end and use_prev_only
-        if not na(prev_obj_h)
-            line.set_color(prev_obj_h.ln, na)
-            label.set_textcolor(prev_obj_h.lbl, na)
-        if not na(prev_obj_l)
-            line.set_color(prev_obj_l.ln, na)
-            label.set_textcolor(prev_obj_l.lbl, na)
-
-        if not na(obj_h)
-            line.set_color(obj_h.ln, c_col)
-            label.set_textcolor(obj_h.lbl, c_col)
-        if not na(obj_l)
-            line.set_color(obj_l.ln, c_col)
-            label.set_textcolor(obj_l.lbl, c_col)
-
-    else if is_monitoring
-        if high >= run_h
-            run_h     := high
-            run_h_idx := bar_index
-        if low <= run_l
-            run_l     := low
-            run_l_idx := bar_index
-
-    if show
-        int final_offset = 3 + offset_val
-
-        if use_prev_only
-            if not na(prev_obj_h) and is_monitoring
-                bool crossed = alert_mode == "影线触碰" ? high > prev_obj_h.price : close > prev_obj_h.price
-                if crossed and not prev_obj_h.is_swept
-                    f_trigger_alert(true, name, "Prev High", prev_obj_h.price, alert_on)
-
-                bool visual_cross = high > prev_obj_h.price
-                if not ignore_sweeps and visual_cross
-                    prev_obj_h.is_swept := true
-                if not prev_obj_h.is_swept
-                    line.set_x2(prev_obj_h.ln, bar_index + final_offset)
-                    label.set_x(prev_obj_h.lbl, bar_index + final_offset)
-
-            if not na(prev_obj_l) and is_monitoring
-                bool crossed = alert_mode == "影线触碰" ? low < prev_obj_l.price : close < prev_obj_l.price
-                if crossed and not prev_obj_l.is_swept
-                    f_trigger_alert(true, name, "Prev Low", prev_obj_l.price, alert_on)
-
-                bool visual_cross = low < prev_obj_l.price
-                if not ignore_sweeps and visual_cross
-                    prev_obj_l.is_swept := true
-                if not prev_obj_l.is_swept
-                    line.set_x2(prev_obj_l.ln, bar_index + final_offset)
-                    label.set_x(prev_obj_l.lbl, bar_index + final_offset)
-
-        color draw_col = use_prev_only and is_monitoring ? na : c_col
-        color txt_col  = use_prev_only and is_monitoring ? na : c_col
-
-        if na(obj_h) and (can_plot or (is_monitoring and not na(run_h)))
-            line l = line.new(run_h_idx, run_h, bar_index, run_h, color=draw_col, width=ln_w)
-            string t = f_lbl_text(name, "H", run_h, show_p)
-            label lb = label.new(bar_index, run_h, t, textcolor=txt_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            obj_h := DynamicLevel.new(run_h, run_h_idx, l, lb, false, current_sess_id, name + " H", c_col)
-            if not show_labels
-                label.set_text(lb, "")
-
-        if not na(obj_h)
-            if obj_h.sess_id == current_sess_id
-                if is_monitoring
-                    if run_h > obj_h.price
-                        obj_h.price := run_h
-                        obj_h.index := run_h_idx
-                        line.set_y1(obj_h.ln, run_h)
-                        line.set_y2(obj_h.ln, run_h)
-                        line.set_x1(obj_h.ln, run_h_idx)
-                        label.set_y(obj_h.lbl, run_h)
-                        if show_labels
-                            label.set_text(obj_h.lbl, f_lbl_text(name, "H", run_h, show_p))
-                    line.set_x2(obj_h.ln, bar_index + final_offset)
-                    label.set_x(obj_h.lbl, bar_index + final_offset)
-                else
-                    bool crossed = alert_mode == "影线触碰" ? high > obj_h.price : close > obj_h.price
-                    if crossed and not obj_h.is_swept
-                        f_trigger_alert(true, name, "High", obj_h.price, alert_on)
-
-                    bool visual_cross = high > obj_h.price
-                    if not ignore_sweeps and visual_cross
-                        obj_h.is_swept := true
-                    if not obj_h.is_swept
-                        line.set_x2(obj_h.ln, bar_index + final_offset)
-                        label.set_x(obj_h.lbl, bar_index + final_offset)
-
-            if not use_prev_only or not is_monitoring
-                line.set_color(obj_h.ln, c_col)
-                label.set_textcolor(obj_h.lbl, c_col)
-                label.set_text(obj_h.lbl, f_lbl_text(name, "H", obj_h.price, show_p))
-            if use_prev_only and is_monitoring
-                line.set_color(obj_h.ln, na)
-                label.set_textcolor(obj_h.lbl, na)
-
-        if na(obj_l) and (can_plot or (is_monitoring and not na(run_l)))
-            line l = line.new(run_l_idx, run_l, bar_index, run_l, color=draw_col, width=ln_w)
-            string t = f_lbl_text(name, "L", run_l, show_p)
-            label lb = label.new(bar_index, run_l, t, textcolor=txt_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            obj_l := DynamicLevel.new(run_l, run_l_idx, l, lb, false, current_sess_id, name + " L", c_col)
-            if not show_labels
-                label.set_text(lb, "")
-
-        if not na(obj_l)
-            if obj_l.sess_id == current_sess_id
-                if is_monitoring
-                    if run_l < obj_l.price
-                        obj_l.price := run_l
-                        obj_l.index := run_l_idx
-                        line.set_y1(obj_l.ln, run_l)
-                        line.set_y2(obj_l.ln, run_l)
-                        line.set_x1(obj_l.ln, run_l_idx)
-                        label.set_y(obj_l.lbl, run_l)
-                        if show_labels
-                            label.set_text(obj_l.lbl, f_lbl_text(name, "L", run_l, show_p))
-                    line.set_x2(obj_l.ln, bar_index + final_offset)
-                    label.set_x(obj_l.lbl, bar_index + final_offset)
-                else
-                    bool crossed = alert_mode == "影线触碰" ? low < obj_l.price : close < obj_l.price
-                    if crossed and not obj_l.is_swept
-                        f_trigger_alert(true, name, "Low", obj_l.price, alert_on)
-
-                    bool visual_cross = low < obj_l.price
-                    if not ignore_sweeps and visual_cross
-                        obj_l.is_swept := true
-                    if not obj_l.is_swept
-                        line.set_x2(obj_l.ln, bar_index + final_offset)
-                        label.set_x(obj_l.lbl, bar_index + final_offset)
-
-            if not use_prev_only or not is_monitoring
-                line.set_color(obj_l.ln, c_col)
-                label.set_textcolor(obj_l.lbl, c_col)
-                label.set_text(obj_l.lbl, f_lbl_text(name, "L", obj_l.price, show_p))
-            if use_prev_only and is_monitoring
-                line.set_color(obj_l.ln, na)
-                label.set_textcolor(obj_l.lbl, na)
-
-    DynamicLevel ret_h = na
-    DynamicLevel ret_l = na
-
-    if use_prev_only
-        if not na(prev_obj_h) and not prev_obj_h.is_swept
-            ret_h := prev_obj_h
-            ret_h.name := name + " Prev H"
-            ret_h.col := c_col
-        if not na(prev_obj_l) and not prev_obj_l.is_swept
-            ret_l := prev_obj_l
-            ret_l.name := name + " Prev L"
-            ret_l.col := c_col
-    else
-        if not na(obj_h) and not obj_h.is_swept
-            ret_h := obj_h
-        if not na(obj_l) and not obj_l.is_swept
-            ret_l := obj_l
-
-    [ret_h, ret_l]
-
-// -----------------------------------------------------------------------------
-// DAILY OPEN LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_open(bool show, color c_col, bool show_history, bool show_labels, string txt_size_str, int ln_w, bool show_p, string sess_spec, string tzone, int offset_val) =>
-    int t = time("D", sess_spec, tzone)
-    bool new_day_start = not na(t) and t != t[1]
-
-    var line  l_open = na
-    var label lb_open = na
-    string lbl_sz = f_get_size(txt_size_str)
-    var float day_open_price = na
-
-    if new_day_start
-        day_open_price := open
-        if not show_history
-            line.delete(l_open)
-            label.delete(lb_open)
-
-        if show
-            l_open := line.new(bar_index, day_open_price, bar_index, day_open_price, color=c_col, width=ln_w)
-            string t_lbl = f_lbl_text("Day", "Open", day_open_price, show_p)
-            lb_open := label.new(bar_index, day_open_price, t_lbl, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            if not show_labels
-                label.set_text(lb_open, "")
-
-    int final_offset = 3 + offset_val
-    if show and not na(l_open)
-        line.set_x2(l_open, bar_index + final_offset)
-        label.set_x(lb_open, bar_index + final_offset)
-        line.set_color(l_open, c_col)
-        label.set_textcolor(lb_open, c_col)
-        label.set_text(lb_open, f_lbl_text("Day", "Open", day_open_price, show_p))
-
-    DynamicLevel ret = na
-    if show and not na(l_open)
-        ret := DynamicLevel.new(day_open_price, bar_index, l_open, lb_open, false, 0, "Day Open", c_col)
-    ret
-
-// -----------------------------------------------------------------------------
-// PD LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_pd(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string alert_mode, string tzone, int offset_val) =>
-    int d = dayofmonth(time, tzone)
-    bool new_day = d != d[1]
-
-    var float run_h = high
-    var float run_l = low
-    var float pdh = na
-    var float pdl = na
-
-    if new_day
-        pdh := run_h
-        pdl := run_l
-        run_h := high
-        run_l := low
-    else
-        run_h := math.max(run_h, high)
-        run_l := math.min(run_l, low)
-
-    string lbl_sz = f_get_size(txt_size_str)
-    var int day_id = 0
-    if new_day
-        day_id := time
-
-    var line  l_pdh = na
-    var line  l_pdl = na
-    var label lb_pdh = na
-    var label lb_pdl = na
-    var int id_pdh = 0
-    var int id_pdl = 0
-    var bool pdh_swept = false
-    var bool pdl_swept = false
-
-    if not na(l_pdh) and id_pdh != day_id
-        if not show_history
-            line.delete(l_pdh)
-            label.delete(lb_pdh)
-        else
-            line.set_x2(l_pdh, bar_index[1])
-            label.set_x(lb_pdh, bar_index[1])
-        l_pdh := na
-
-    if not na(l_pdl) and id_pdl != day_id
-        if not show_history
-            line.delete(l_pdl)
-            label.delete(lb_pdl)
-        else
-            line.set_x2(l_pdl, bar_index[1])
-            label.set_x(lb_pdl, bar_index[1])
-        l_pdl := na
-
-    if show and not na(pdh) and na(l_pdh)
-        l_pdh := line.new(bar_index, pdh, bar_index, pdh, color=c_col, width=ln_w)
-        string t = f_lbl_text("PD", "H", pdh, show_p)
-        lb_pdh := label.new(bar_index, pdh, t, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-        if not show_labels
-            label.set_text(lb_pdh, "")
-        id_pdh := day_id
-        pdh_swept := false
-
-    if show and not na(pdl) and na(l_pdl)
-        l_pdl := line.new(bar_index, pdl, bar_index, pdl, color=c_col, width=ln_w)
-        string t = f_lbl_text("PD", "L", pdl, show_p)
-        lb_pdl := label.new(bar_index, pdl, t, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-        if not show_labels
-            label.set_text(lb_pdl, "")
-        id_pdl := day_id
-        pdl_swept := false
-
-    int final_offset = 3 + offset_val
-    bool pdh_active = false
-    bool pdl_active = false
-
-    if not na(l_pdh) and id_pdh == day_id
-        bool stop_ext = false
-        bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_pdh) : close > line.get_y1(l_pdh)
-        if crossed and not pdh_swept
-            f_trigger_alert(true, "PD", "High", line.get_y1(l_pdh), alert_on)
-            pdh_swept := true
-        if not ignore_sweeps and high > line.get_y1(l_pdh)
-            stop_ext := true
-        if not stop_ext
-            line.set_x2(l_pdh, bar_index + final_offset)
-            label.set_x(lb_pdh, bar_index + final_offset)
-            pdh_active := true
-            line.set_color(l_pdh, c_col)
-            label.set_textcolor(lb_pdh, c_col)
-            label.set_text(lb_pdh, f_lbl_text("PD", "H", pdh, show_p))
-
-    if not na(l_pdl) and id_pdl == day_id
-        bool stop_ext = false
-        bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_pdl) : close < line.get_y1(l_pdl)
-        if crossed and not pdl_swept
-            f_trigger_alert(true, "PD", "Low", line.get_y1(l_pdl), alert_on)
-            pdl_swept := true
-        if not ignore_sweeps and low < line.get_y1(l_pdl)
-            stop_ext := true
-        if not stop_ext
-            line.set_x2(l_pdl, bar_index + final_offset)
-            label.set_x(lb_pdl, bar_index + final_offset)
-            pdl_active := true
-            line.set_color(l_pdl, c_col)
-            label.set_textcolor(lb_pdl, c_col)
-            label.set_text(lb_pdl, f_lbl_text("PD", "L", pdl, show_p))
-
-    DynamicLevel ret_h = na
-    DynamicLevel ret_l = na
-    if pdh_active
-        ret_h := DynamicLevel.new(pdh, bar_index, l_pdh, lb_pdh, pdh_swept, id_pdh, "PD H", c_col)
-    if pdl_active
-        ret_l := DynamicLevel.new(pdl, bar_index, l_pdl, lb_pdl, pdl_swept, id_pdl, "PD L", c_col)
-
-    [ret_h, ret_l]
-
-// -----------------------------------------------------------------------------
-// PREVIOUS WEEK LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_pw(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string alert_mode, string tzone, int offset_val) =>
-    int w = weekofyear(time, tzone)
-    int y = year(time, tzone)
-    bool new_week = w != w[1] or y != y[1]
-
-    var float run_h = high
-    var float run_l = low
-    var float run_o = open
-
-    var float pwh = na
-    var float pwl = na
-    var float pwo = na
-
-    if new_week
-        pwh := run_h
-        pwl := run_l
-        pwo := run_o
-        run_h := high
-        run_l := low
-        run_o := open
-    else
-        run_h := math.max(run_h, high)
-        run_l := math.min(run_l, low)
-
-    string lbl_sz = f_get_size(txt_size_str)
-
-    var int week_id = 0
-    if new_week
-        week_id := time
-
-    var line  l_pwh = na
-    var line  l_pwl = na
-    var line  l_pwo = na
-    var label lb_pwh = na
-    var label lb_pwl = na
-    var label lb_pwo = na
-    var int id_pwh = 0
-    var int id_pwl = 0
-    var int id_pwo = 0
-    var bool pwh_swept = false
-    var bool pwl_swept = false
-
-    if not na(l_pwh) and id_pwh != week_id
-        if not show_history
-            line.delete(l_pwh)
-            label.delete(lb_pwh)
-        else
-            line.set_x2(l_pwh, bar_index[1])
-            label.set_x(lb_pwh, bar_index[1])
-        l_pwh := na
-
-    if not na(l_pwl) and id_pwl != week_id
-        if not show_history
-            line.delete(l_pwl)
-            label.delete(lb_pwl)
-        else
-            line.set_x2(l_pwl, bar_index[1])
-            label.set_x(lb_pwl, bar_index[1])
-        l_pwl := na
-
-    if not na(l_pwo) and id_pwo != week_id
-        if not show_history
-            line.delete(l_pwo)
-            label.delete(lb_pwo)
-        else
-            line.set_x2(l_pwo, bar_index[1])
-            label.set_x(lb_pwo, bar_index[1])
-        l_pwo := na
-
-    if show and not na(pwh) and na(l_pwh)
-        l_pwh := line.new(bar_index, pwh, bar_index, pwh, color=c_col, width=ln_w)
-        lb_pwh := label.new(bar_index, pwh, f_lbl_text("PW", "H", pwh, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-        if not show_labels
-            label.set_text(lb_pwh, "")
-        id_pwh := week_id
-        pwh_swept := false
-
-    if show and not na(pwl) and na(l_pwl)
-        l_pwl := line.new(bar_index, pwl, bar_index, pwl, color=c_col, width=ln_w)
-        lb_pwl := label.new(bar_index, pwl, f_lbl_text("PW", "L", pwl, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-        if not show_labels
-            label.set_text(lb_pwl, "")
-        id_pwl := week_id
-        pwl_swept := false
-
-    if show and not na(pwo) and na(l_pwo)
-        l_pwo := line.new(bar_index, pwo, bar_index, pwo, color=c_col, width=ln_w)
-        lb_pwo := label.new(bar_index, pwo, f_lbl_text("PW", "O", pwo, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-        if not show_labels
-            label.set_text(lb_pwo, "")
-        id_pwo := week_id
-
-    int final_offset = 3 + offset_val
-    bool pwh_active = false
-    bool pwl_active = false
-    bool pwo_active = false
-
-    if not na(l_pwh) and id_pwh == week_id
-        bool stop_ext = false
-        bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_pwh) : close > line.get_y1(l_pwh)
-        if crossed and not pwh_swept
-            f_trigger_alert(true, "PW", "High", line.get_y1(l_pwh), alert_on)
-            pwh_swept := true
-        if not ignore_sweeps and high > line.get_y1(l_pwh)
-            stop_ext := true
-        if not stop_ext
-            line.set_x2(l_pwh, bar_index + final_offset)
-            label.set_x(lb_pwh, bar_index + final_offset)
-            pwh_active := true
-            line.set_color(l_pwh, c_col)
-            label.set_textcolor(lb_pwh, c_col)
-            label.set_text(lb_pwh, f_lbl_text("PW", "H", pwh, show_p))
-
-    if not na(l_pwl) and id_pwl == week_id
-        bool stop_ext = false
-        bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_pwl) : close < line.get_y1(l_pwl)
-        if crossed and not pwl_swept
-            f_trigger_alert(true, "PW", "Low", line.get_y1(l_pwl), alert_on)
-            pwl_swept := true
-        if not ignore_sweeps and low < line.get_y1(l_pwl)
-            stop_ext := true
-        if not stop_ext
-            line.set_x2(l_pwl, bar_index + final_offset)
-            label.set_x(lb_pwl, bar_index + final_offset)
-            pwl_active := true
-            line.set_color(l_pwl, c_col)
-            label.set_textcolor(lb_pwl, c_col)
-            label.set_text(lb_pwl, f_lbl_text("PW", "L", pwl, show_p))
-
-    if not na(l_pwo) and id_pwo == week_id
-        line.set_x2(l_pwo, bar_index + final_offset)
-        label.set_x(lb_pwo, bar_index + final_offset)
-        pwo_active := true
-        line.set_color(l_pwo, c_col)
-        label.set_textcolor(lb_pwo, c_col)
-        label.set_text(lb_pwo, f_lbl_text("PW", "O", pwo, show_p))
-
-    DynamicLevel ret_h = na
-    DynamicLevel ret_l = na
-    DynamicLevel ret_o = na
-
-    if pwh_active
-        ret_h := DynamicLevel.new(pwh, bar_index, l_pwh, lb_pwh, pwh_swept, id_pwh, "PW H", c_col)
-    if pwl_active
-        ret_l := DynamicLevel.new(pwl, bar_index, l_pwl, lb_pwl, pwl_swept, id_pwl, "PW L", c_col)
-    if pwo_active
-        ret_o := DynamicLevel.new(pwo, bar_index, l_pwo, lb_pwo, false, id_pwo, "PW O", c_col)
-
-    [ret_h, ret_l, ret_o]
-
-// -----------------------------------------------------------------------------
-// MONDAY LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_monday(bool show, color c_col, bool show_history, bool ignore_sweeps, bool show_labels, string txt_size_str, int ln_w, bool show_p, bool alert_on, string tzone, string alert_mode, int offset_val) =>
-    int d = dayofweek(time, tzone)
-    bool is_mon = d == dayofweek.monday
-    int d_prev = dayofweek(time[1], tzone)
-    bool new_mon_bar = is_mon and d_prev != dayofweek.monday
-    bool end_mon_bar = not is_mon and d_prev == dayofweek.monday
-
-    var float cur_h = na
-    var int cur_h_idx = na
-    var float cur_l = na
-    var int cur_l_idx = na
-
-    if new_mon_bar or (is_mon and na(cur_h))
-        cur_h := high
-        cur_h_idx := bar_index
-        cur_l := low
-        cur_l_idx := bar_index
-    else if is_mon
-        if high > cur_h
-            cur_h := high
-            cur_h_idx := bar_index
-        if low < cur_l
-            cur_l := low
-            cur_l_idx := bar_index
-
-    var line  l_mh = na
-    var line  l_ml = na
-    var label lb_mh = na
-    var label lb_ml = na
-    var bool mh_swept = false
-    var bool ml_swept = false
-    string lbl_sz = f_get_size(txt_size_str)
-
-    if end_mon_bar
-        if not show_history
-            line.delete(l_mh)
-            label.delete(lb_mh)
-            line.delete(l_ml)
-            label.delete(lb_ml)
-
-        if show
-            l_mh := line.new(cur_h_idx, cur_h, bar_index, cur_h, color=c_col, width=ln_w)
-            string th = f_lbl_text("Mon", "H", cur_h, show_p)
-            lb_mh := label.new(bar_index, cur_h, th, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            if not show_labels
-                label.set_text(lb_mh, "")
-
-            l_ml := line.new(cur_l_idx, cur_l, bar_index, cur_l, color=c_col, width=ln_w)
-            string tl = f_lbl_text("Mon", "L", cur_l, show_p)
-            lb_ml := label.new(bar_index, cur_l, tl, textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            if not show_labels
-                label.set_text(lb_ml, "")
-
-            mh_swept := false
-            ml_swept := false
-
-    int final_offset = 3 + offset_val
-    bool mh_active = false
-    bool ml_active = false
-
-    if show
-        if not na(l_mh)
-            bool stop_ext = false
-            bool crossed = alert_mode == "影线触碰" ? high > line.get_y1(l_mh) : close > line.get_y1(l_mh)
-            if crossed and not mh_swept
-                f_trigger_alert(true, "Mon", "High", line.get_y1(l_mh), alert_on)
-                mh_swept := true
-            if not ignore_sweeps and high > line.get_y1(l_mh)
-                stop_ext := true
-            if not stop_ext
-                line.set_x2(l_mh, bar_index + final_offset)
-                label.set_x(lb_mh, bar_index + final_offset)
-                mh_active := true
-                line.set_color(l_mh, c_col)
-                label.set_textcolor(lb_mh, c_col)
-                label.set_text(lb_mh, f_lbl_text("Mon", "H", cur_h, show_p))
-
-        if not na(l_ml)
-            bool stop_ext = false
-            bool crossed = alert_mode == "影线触碰" ? low < line.get_y1(l_ml) : close < line.get_y1(l_ml)
-            if crossed and not ml_swept
-                f_trigger_alert(true, "Mon", "Low", line.get_y1(l_ml), alert_on)
-                ml_swept := true
-            if not ignore_sweeps and low < line.get_y1(l_ml)
-                stop_ext := true
-            if not stop_ext
-                line.set_x2(l_ml, bar_index + final_offset)
-                label.set_x(lb_ml, bar_index + final_offset)
-                ml_active := true
-                line.set_color(l_ml, c_col)
-                label.set_textcolor(lb_ml, c_col)
-                label.set_text(lb_ml, f_lbl_text("Mon", "L", cur_l, show_p))
-
-    DynamicLevel ret_h = na
-    DynamicLevel ret_l = na
-    if mh_active
-        ret_h := DynamicLevel.new(cur_h, cur_h_idx, l_mh, lb_mh, mh_swept, 0, "Mon H", c_col)
-    if ml_active
-        ret_l := DynamicLevel.new(cur_l, cur_l_idx, l_ml, lb_ml, ml_swept, 0, "Mon L", c_col)
-
-    [ret_h, ret_l]
-
-// -----------------------------------------------------------------------------
-// MIDNIGHT OPEN LOGIC
-// -----------------------------------------------------------------------------
-
-f_manage_midnight(bool show, color c_col, bool show_history, bool show_labels, string txt_size_str, int ln_w, bool show_p, int offset_val) =>
-    bool is_midnight = hour(time, "America/New_York") == 0 and hour(time[1], "America/New_York") != 0
-
-    var line  l_mo     = na
-    var label lb_mo    = na
-    var float mo_price = na
-    string lbl_sz = f_get_size(txt_size_str)
-
-    if is_midnight
-        mo_price := open
-        if not show_history
-            line.delete(l_mo)
-            label.delete(lb_mo)
-        if show
-            l_mo := line.new(bar_index, mo_price, bar_index, mo_price, color=c_col, width=ln_w)
-            lb_mo := label.new(bar_index, mo_price, f_lbl_text("Mid", "Open", mo_price, show_p), textcolor=c_col, style=label.style_label_left, color=color.new(color.white, 100), size=lbl_sz)
-            if not show_labels
-                label.set_text(lb_mo, "")
-
-    int final_offset = 3 + offset_val
-    if show and not na(l_mo)
-        line.set_x2(l_mo, bar_index + final_offset)
-        label.set_x(lb_mo, bar_index + final_offset)
-        line.set_color(l_mo, c_col)
-        label.set_textcolor(lb_mo, c_col)
-        label.set_text(lb_mo, f_lbl_text("Mid", "Open", mo_price, show_p))
-
-    DynamicLevel ret = na
-    if show and not na(l_mo)
-        ret := DynamicLevel.new(mo_price, bar_index, l_mo, lb_mo, false, 0, "Mid Open", c_col)
-    ret
-
-// -----------------------------------------------------------------------------
-// MERGE UTILS
-// -----------------------------------------------------------------------------
-
-f_merge_overlaps(DynamicLevel[] levels) =>
-    int sz = array.size(levels)
-    if sz > 1
-        for i = 0 to sz - 2
-            DynamicLevel lvl_i = array.get(levels, i)
-            if not na(lvl_i)
-                for j = i + 1 to sz - 1
-                    DynamicLevel lvl_j = array.get(levels, j)
-                    if not na(lvl_j)
-                        if lvl_i.price == lvl_j.price
-                            string combined_name = lvl_i.name + " / " + lvl_j.name
-                            lvl_i.name := combined_name
-                            string new_txt = f_lbl_text(combined_name, "", lvl_i.price, show_price)
-                            label.set_text(lvl_i.lbl, new_txt)
-                            line.set_color(lvl_j.ln, na)
-                            label.set_textcolor(lvl_j.lbl, na)
-                            label.set_text(lvl_j.lbl, "")
-
-// -----------------------------------------------------------------------------
-// PLOTTING & EXECUTION
-// -----------------------------------------------------------------------------
-
-s_1 = use_stagger ? stag_step * 1 : 0
-s_2 = use_stagger ? stag_step * 2 : 0
-s_3 = use_stagger ? stag_step * 3 : 0
-s_4 = use_stagger ? stag_step * 4 : 0
-s_5 = use_stagger ? stag_step * 5 : 0
-s_6 = use_stagger ? stag_step * 6 : 0
-
-var DynamicLevel[] active_levels = array.new<DynamicLevel>()
-array.clear(active_levels)
-
-// 0. 午夜开盘价
-DynamicLevel mo_lvl = f_manage_midnight(show_mo, col_mo, show_hist, show_lbls, txt_size_in, ln_width, show_price, 0)
-if not na(mo_lvl)
-    array.push(active_levels, mo_lvl)
-
-// 1. 日开盘价
-DynamicLevel do_lvl = f_manage_open(show_do, col_do, show_hist, show_lbls, txt_size_in, ln_width, show_price, day_sess, sess_ref_tz, s_5)
-if not na(do_lvl)
-    array.push(active_levels, do_lvl)
-
-// 2. 周一高低点
-[mon_h, mon_l] = f_manage_monday(show_mon, col_mon, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, user_tz, alert_mode, s_4)
-if not na(mon_h)
-    array.push(active_levels, mon_h)
-if not na(mon_l)
-    array.push(active_levels, mon_l)
-
-// 3. 前一周高低开
-[pw_h, pw_l, pw_o] = f_manage_pw(show_pw, col_pw, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, alert_mode, user_tz, s_6)
-if not na(pw_h)
-    array.push(active_levels, pw_h)
-if not na(pw_l)
-    array.push(active_levels, pw_l)
-if not na(pw_o)
-    array.push(active_levels, pw_o)
-
-// 4. 前一日高低点
-[pd_h, pd_l] = f_manage_pd(show_pd, col_pd, show_hist, ext_sweeps, show_lbls, txt_size_in, ln_width, show_price, use_alerts, alert_mode, user_tz, s_3)
-if not na(pd_h)
-    array.push(active_levels, pd_h)
-if not na(pd_l)
-    array.push(active_levels, pd_l)
-
-// 5. 亚洲时段
-[asia_h, asia_l] = f_manage_dynamic(true, asia_time, asia_time, col_asia, "Asia", show_hist, ext_sweeps, show_lbls, prev_asia, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_1)
-if not na(asia_h)
-    array.push(active_levels, asia_h)
-if not na(asia_l)
-    array.push(active_levels, asia_l)
-
-// 6. 伦敦时段
-[lon_h, lon_l] = f_manage_dynamic(true, lon_time, lon_time, col_lon, "Lon", show_hist, ext_sweeps, show_lbls, prev_lon, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_2)
-if not na(lon_h)
-    array.push(active_levels, lon_h)
-if not na(lon_l)
-    array.push(active_levels, lon_l)
-
-// 7. 纽约时段
-[ny_h, ny_l] = f_manage_dynamic(true, ny_time, ny_time, col_ny, "NY", show_hist, ext_sweeps, show_lbls, prev_ny, txt_size_in, ln_width, show_price, use_alerts, sess_ref_tz, alert_mode, s_3)
-if not na(ny_h)
-    array.push(active_levels, ny_h)
-if not na(ny_l)
-    array.push(active_levels, ny_l)
-
-// 合并重叠价位
-f_merge_overlaps(active_levels)
+indicator("Alogs GEX 磁吸阶梯", overlay=true, max_boxes_count=300, max_labels_count=300, max_lines_count=100)
+
+const string DEFAULT_QQQ_GEX_DATA = "strike,put_gex_b,call_gex_b\n730,-0.0407,9.3\n729,0,1.6\n728,0,2.0\n727,-0.0109,3.2\n726,0,4.3\n725,-0.2247,17.8\n724,-1.0,5.2\n723,-0.7471,5.3\n722,-1.6,30.0\n721,-4.8,13.1\n720,-6.2,36.8\n719,-2.7,15.4\n718,-2.6,18.1\n717,-5.0,11.8\n716,-7.3,13.1\n715,-14.5,32.1\n714,-7.6,20.0\n713,-7.9,9.8\n712,-8.6,13.2\n711,-7.1,9.3\n710,-14.8,9.3\n709,-5.2,3.7\n708,-5.0,1.5\n707,-4.0,0\n706,-2.8,0"
+const string DEFAULT_SPY_GEX_DATA = "strike,put_gex_b,call_gex_b\n"
+const string DEFAULT_SPX_GEX_DATA = "strike,put_gex_b,call_gex_b\n"
+
+groupData = "数据"
+sourceMode = input.string("自动", "GEX 数据源", options=["自动", "QQQ", "SPY", "SPX"], tooltip="自动模式会根据 ETF / Index / Futures 自动选择 QQQ、SPY 或 SPX 输入。", group=groupData)
+qqqGexInput = input.text_area(defval=DEFAULT_QQQ_GEX_DATA, title="QQQ GEX 数据", tooltip="用于 QQQ ETF、NDX 指数、NQ/MNQ 期货。每行格式: strike,put_gex_b,call_gex_b。单位是 B；Put 建议填负数。", group=groupData)
+spyGexInput = input.text_area(defval=DEFAULT_SPY_GEX_DATA, title="SPY GEX 数据", tooltip="用于 SPY ETF；也可手动选择 SPY -> ES 映射。每行格式: strike,put_gex_b,call_gex_b。", group=groupData)
+spxGexInput = input.text_area(defval=DEFAULT_SPX_GEX_DATA, title="SPX GEX 数据", tooltip="用于 SPX 指数、ES/MES 期货。每行格式: strike,put_gex_b,call_gex_b。", group=groupData)
+
+groupMapping = "标的映射"
+mapMode = input.string("自动", "价格映射模式", options=["自动", "QQQ -> NQ", "SPY -> ES", "SPX -> ES", "不转换", "手动倍率"], tooltip="自动模式会按当前图表固定映射，不使用实时价格动态重算。QQQ 在 NDX/NQ/MNQ 上使用 QQQ->NQ 倍率；SPY 在 SPX/ES/MES 上使用 SPY->ES 倍率；SPX 在 ES/MES 上默认使用 SPX->ES 倍率。", group=groupMapping)
+fixedQQQToNQ = input.float(41.19, "固定倍率 QQQ -> NQ", minval=0.0001, step=0.001, group=groupMapping)
+fixedSPYToES = input.float(10.000, "固定倍率 SPY -> ES", minval=0.0001, step=0.001, group=groupMapping)
+fixedSPXToES = input.float(1.000, "固定倍率 SPX -> ES", minval=0.0001, step=0.001, group=groupMapping)
+manualMultiplier = input.float(1.0, "手动倍率", minval=0.0001, step=0.01, group=groupMapping)
+mapGammaFlip = input.bool(true, "同步映射 Gamma Flip", group=groupMapping)
+showMappedInfo = input.bool(true, "汇总表显示映射信息", group=groupMapping)
+
+groupLayout = "布局"
+anchorBars = input.int(80, "右侧固定偏移K数", minval=1, maxval=500, tooltip="以最后一根K线为基准向右固定偏移。柱体不再使用可见窗口百分比，因此缩放/滚动不会改变柱宽。", group=groupLayout)
+maxWidthBars = input.int(46, "最大柱宽K数", minval=3, maxval=300, group=groupLayout)
+levelSpanBars = input.int(260, "墙位线长度K数", minval=20, maxval=2000, group=groupLayout)
+textGapBars = input.int(2, "右侧文字间距K数", minval=1, maxval=50, group=groupLayout)
+keyAppendGapBars = input.int(2, "关键位追加间距K数", minval=0, maxval=120, group=groupLayout)
+mappedKeyAppendMinBars = input.int(28, "映射模式关键位最小间距K数", minval=0, maxval=120, tooltip="QQQ->NQ 或 SPY->ES 时，右侧价格文本较长。这里用于防止 King/支撑/阻力压到灰色价格。实际间距取它和"关键位追加间距K数"的较大值。", group=groupLayout)
+rowHeight = input.float(1.0, "单行高度倍率", minval=0.1, maxval=2.0, step=0.02, tooltip="默认 1.0 会自动填满相邻 strike 间距。QQQ 通常是 1 点一档，SPX 通常是 5 点一档；映射到期货时使用映射后的 strike 间距。", group=groupLayout)
+rowSplitGapPct = input.float(0.0, "上下柱体间隔比例", minval=0.0, maxval=0.30, step=0.01, tooltip="同一 strike 内 Call/Put 上下柱体之间的间隔。默认 0 为紧贴。", group=groupLayout)
+
+groupStyle = "样式"
+callColor = input.color(color.rgb(0, 235, 155), "Call 颜色", group=groupStyle)
+putColor = input.color(color.rgb(255, 68, 82), "Put 颜色", group=groupStyle)
+strikeColorInput = input.color(color.rgb(120, 135, 155), "行权价文字颜色", group=groupStyle)
+fillTransparency = input.int(48, "柱体透明度", minval=0, maxval=95, group=groupStyle)
+barBorderTransparency = input.int(12, "柱体边框透明度", minval=0, maxval=95, group=groupStyle)
+showWallBands = input.bool(true, "高亮最大墙位", group=groupStyle)
+showStrikeLabels = input.bool(true, "显示行权价", group=groupStyle)
+
+groupLabels = "标签"
+labelMode = input.string("只显示主要", "数值标签", options=["关闭", "只显示主要", "全部显示"], group=groupLabels)
+majorThreshold = input.float(5.0, "主要标签阈值(B)", minval=0.0, step=0.5, group=groupLabels)
+priceTextSizeInput = input.string("小", "右侧价格字体大小", options=["极小", "小", "正常", "大", "很大"], group=groupLabels)
+keyTextSizeInput = input.string("小", "关键位字体大小", options=["极小", "小", "正常", "大", "很大"], group=groupLabels)
+showKeyText = input.bool(false, "显示右侧关键位文字", tooltip="开启后会在右侧价格后面追加 King / 阻力 / 支撑。QQQ->NQ 或 SPY->ES 映射时，如仍有重叠，可加大"映射模式关键位最小间距K数"。", group=groupLabels)
+showSummary = input.bool(true, "显示汇总表", group=groupLabels)
+
+groupLevels = "关键价位"
+showGammaFlip = input.bool(true, "显示 Gamma Flip", group=groupLevels)
+gammaFlipMode = input.string("自动计算", "Gamma Flip 来源", options=["自动计算", "手动输入"], tooltip="自动计算: 使用相邻 strike 的净 GEX(Call+Put) 零轴穿越线性插值。找不到穿越点时回退到手动输入。", group=groupLevels)
+gammaFlip = input.float(710.72, "Gamma Flip 价格", step=0.01, group=groupLevels)
+showKeyNodes = input.bool(true, "显示 King / 支撑阻力节点", group=groupLevels)
+keyNodeThreshold = input.float(14.0, "大节点阈值(B)", minval=0.0, step=0.5, group=groupLevels)
+supportKingRatio = input.float(50.0, "支撑至少达到 King 比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="低于 King 的支撑节点必须同时超过大节点阈值，并达到 King 强度的指定比例。默认 50%。", group=groupLevels)
+dynamicKeyFilterMode = input.string("动态筛选", "通用支撑阻力筛选", options=["动态筛选", "King比例"], tooltip="动态筛选会按当前价上下方分组，使用同侧最大节点、局部峰值和数量限制来区分支撑/阻力，不再硬性要求达到 King 的固定比例。", group=groupLevels)
+dynamicSideStrengthRatio = input.float(30.0, "动态同侧强度比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="通用动态筛选中，节点强度至少达到同侧最大节点的比例。", group=groupLevels)
+dynamicShelfStrengthRatio = input.float(50.0, "动态强峰邻近保留比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="当节点不是严格局部峰值，但强度达到同侧最大节点的该比例时，仍保留为支撑/阻力。用于识别紧贴 King 或主墙旁边的次级台阶。", group=groupLevels)
+dynamicMaxLevelsPerSide = input.int(5, "动态每侧最多关键位", minval=1, maxval=12, group=groupLevels)
+dynamicLocalPeaksOnly = input.bool(true, "动态只保留局部峰值", tooltip="开启后，只有强度不低于相邻 strike 的节点才会作为支撑/阻力。", group=groupLevels)
+dynamicSplitByCurrentPrice = input.bool(true, "动态按当前价划分支撑阻力", tooltip="开启后，当前价上方为阻力、下方为支撑；关闭后仍以 King 上下方划分。", group=groupLevels)
+spxKeyFilterMode = input.string("专业筛选", "SPX 支撑阻力筛选", options=["专业筛选", "通用阈值"], tooltip="专业筛选会按当前价上下方分组，只保留同侧强节点、局部峰值，并限制每侧数量。通用阈值则沿用普通 King/阈值逻辑。", group=groupLevels)
+spxSideStrengthRatio = input.float(55.0, "SPX 同侧强度比例(%)", minval=0.0, maxval=100.0, step=5.0, tooltip="SPX 专业筛选中，节点强度至少达到同侧最大节点的比例。", group=groupLevels)
+spxMaxLevelsPerSide = input.int(4, "SPX 每侧最多关键位", minval=1, maxval=12, group=groupLevels)
+spxLocalPeaksOnly = input.bool(true, "SPX 只保留局部峰值", tooltip="开启后，只有强度不低于相邻 strike 的节点才会作为 SPX 支撑/阻力。", group=groupLevels)
+spxSplitByCurrentPrice = input.bool(true, "SPX 按当前价划分支撑阻力", tooltip="开启后，当前价上方为阻力、下方为支撑；关闭后仍以 King 上下方划分。", group=groupLevels)
+kingColor = input.color(color.rgb(155, 85, 255), "King 紫色", group=groupLevels)
+resistanceColor = input.color(color.rgb(255, 165, 60), "阻力颜色", group=groupLevels)
+supportColor = input.color(color.rgb(38, 180, 255), "支撑颜色", group=groupLevels)
+keyLineWidth = input.int(2, "节点线粗细", minval=1, maxval=5, group=groupLevels)
+kingBandColor = input.color(color.rgb(155, 85, 255), "King 色带颜色", group=groupLevels)
+resistanceBandColor = input.color(color.rgb(255, 165, 60), "阻力色带颜色", group=groupLevels)
+supportBandColor = input.color(color.rgb(38, 180, 255), "支撑色带颜色", group=groupLevels)
+kingBandTransparency = input.int(88, "King 色带透明度", minval=0, maxval=100, group=groupLevels)
+resistanceBandTransparency = input.int(91, "阻力色带透明度", minval=0, maxval=100, group=groupLevels)
+supportBandTransparency = input.int(91, "支撑色带透明度", minval=0, maxval=100, group=groupLevels)
+keyLineTransparency = input.int(0, "节点线透明度", minval=0, maxval=100, group=groupLevels)
+
+// 以下为渲染逻辑（解析 CSV、计算关键节点、绘制柱状图和标签）
+
+var box[] boxes = array.new_box()
+var label[] labels = array.new_label()
+var line[] lines = array.new_line()
+var table summary = table.new(position.top_right, 2, 8, bgcolor=color.new(color.black, 82), border_color=color.new(color.gray, 82), border_width=1)
+
+cleanToken(string raw) =>
+    string s1 = str.replace_all(raw, " ", "")
+    string s2 = str.replace_all(s1, "\r", "")
+    str.replace_all(s2, "\t", "")
+
+numFromToken(string raw) =>
+    str.tonumber(cleanToken(raw))
+
+fmtGex(float value) =>
+    float av = math.abs(value)
+    string sign = value < 0 ? "-" : ""
+    av == 0.0 ? "$0" : av >= 1.0 ? "$" + sign + str.tostring(av, "#.0") + "B" : "$" + sign + str.tostring(av * 1000.0, "#.0") + "M"
+
+addBox(int xLeft, float yTop, int xRight, float yBottom, color bgFill, color borderCol, int borderWidth) =>
+    box b = box.new(left=xLeft, top=yTop, right=xRight, bottom=yBottom, xloc=xloc.bar_index, bgcolor=bgFill, border_color=borderCol, border_width=math.max(1, borderWidth))
+    array.push(boxes, b)
+
+addLabel(int x, float y, string labelText, color textColor, string labelStyle, string labelSize) =>
+    label l = label.new(x=x, y=y, text=labelText, xloc=xloc.bar_index, yloc=yloc.price, style=labelStyle, color=color.new(color.black, 100), textcolor=textColor, size=labelSize)
+    array.push(labels, l)
+
+addLine(int x1, float y1, int x2, float y2, color lineColor, string lineStyle, int width) =>
+    line ln = line.new(x1=x1, y1=y1, x2=x2, y2=y2, xloc=xloc.bar_index, extend=extend.none, color=lineColor, style=lineStyle, width=width)
+    array.push(lines, ln)
+
+clearDrawings() =>
+    if array.size(boxes) > 0
+        for i = 0 to array.size(boxes) - 1
+            box.delete(array.get(boxes, i))
+        array.clear(boxes)
+    if array.size(labels) > 0
+        for i = 0 to array.size(labels) - 1
+            label.delete(array.get(labels, i))
+        array.clear(labels)
+    if array.size(lines) > 0
+        for i = 0 to array.size(lines) - 1
+            line.delete(array.get(lines, i))
+        array.clear(lines)
+
+showValueLabel(float value) =>
+    labelMode == "全部显示" or (labelMode == "只显示主要" and math.abs(value) >= majorThreshold)
+
+labelSize(string value) =>
+    value == "极小" ? size.tiny : value == "小" ? size.small : value == "正常" ? size.normal : value == "大" ? size.large : size.huge
+
+isNQChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "NQ" or root == "MNQ" or str.contains(ticker, "NAS100") or str.contains(ticker, "US100")
+
+isNDXChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "NDX" or str.contains(ticker, "NDX")
+
+isQQQChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "QQQ" or str.contains(ticker, "QQQ")
+
+isESChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "ES" or root == "MES" or str.contains(ticker, "US500") or str.contains(ticker, "SP500")
+
+isSPXChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "SPX" or str.contains(ticker, "SPX") or str.contains(ticker, "SPX500")
+
+isSPYChart() =>
+    string root = str.upper(syminfo.root)
+    string ticker = str.upper(syminfo.ticker)
+    root == "SPY" or str.contains(ticker, "SPY")
+
+if barstate.islast
+    clearDrawings()
+
+    float[] strikes = array.new_float()
+    float[] rawStrikes = array.new_float()
+    float[] puts = array.new_float()
+    float[] calls = array.new_float()
+    bool qqqFamilyChart = isQQQChart() or isNDXChart() or isNQChart()
+    bool spyFamilyChart = isSPYChart()
+    bool spxFamilyChart = isSPXChart() or isESChart()
+    bool forcedQQQ = mapMode == "QQQ -> NQ"
+    bool forcedSPY = mapMode == "SPY -> ES"
+    bool forcedSPX = mapMode == "SPX -> ES"
+    string sourceName = forcedQQQ ? "QQQ" : forcedSPY ? "SPY" : forcedSPX ? "SPX" : sourceMode != "自动" ? sourceMode : qqqFamilyChart ? "QQQ" : spyFamilyChart ? "SPY" : spxFamilyChart ? "SPX" : "QQQ"
+    string activeGexInput = sourceName == "SPX" ? spxGexInput : sourceName == "SPY" ? spyGexInput : qqqGexInput
+    string[] rows = str.split(activeGexInput, "\n")
+
+    float autoMultiplier = sourceName == "QQQ" ? (isNDXChart() or isNQChart() ? fixedQQQToNQ : 1.0) : sourceName == "SPY" ? (isSPXChart() or isESChart() ? fixedSPYToES : 1.0) : sourceName == "SPX" ? (isESChart() ? fixedSPXToES : 1.0) : 1.0
+    float multiplier = mapMode == "手动倍率" ? manualMultiplier : mapMode == "不转换" ? 1.0 : forcedQQQ ? fixedQQQToNQ : forcedSPY ? fixedSPYToES : forcedSPX ? fixedSPXToES : autoMultiplier
+    float manualMappedGammaFlip = mapGammaFlip ? gammaFlip * multiplier : gammaFlip
+
+    for rowNo = 0 to array.size(rows) - 1
+        string row = cleanToken(array.get(rows, rowNo))
+        string[] parts = str.split(row, ",")
+        if array.size(parts) >= 3
+            float strikeValue = numFromToken(array.get(parts, 0))
+            float putValue = numFromToken(array.get(parts, 1))
+            float callValue = numFromToken(array.get(parts, 2))
+            if not na(strikeValue) and not na(putValue) and not na(callValue)
+                array.push(strikes, strikeValue * multiplier)
+                array.push(rawStrikes, strikeValue)
+                array.push(puts, putValue)
+                array.push(calls, callValue)
+
+    int rowCount = array.size(strikes)
+    if rowCount > 0
+        float maxAbsGex = 0.0
+        float maxCall = 0.0
+        float maxPutAbs = 0.0
+        float kingStrength = 0.0
+        float callWallStrike = na
+        float putWallStrike = na
+        float kingStrike = na
+        float kingSignedGex = na
+        float totalCall = 0.0
+        float totalPut = 0.0
+        float autoGammaFlip = na
+
+        for i = 0 to rowCount - 1
+            float c = array.get(calls, i)
+            float p = array.get(puts, i)
+            float strike = array.get(strikes, i)
+            float nodeStrength = math.max(math.abs(c), math.abs(p))
+            maxAbsGex := math.max(maxAbsGex, math.max(math.abs(c), math.abs(p)))
+            totalCall += c
+            totalPut += p
+            if c > maxCall
+                maxCall := c
+                callWallStrike := strike
+            if math.abs(p) > maxPutAbs
+                maxPutAbs := math.abs(p)
+                putWallStrike := strike
+            if nodeStrength > kingStrength
+                kingStrength := nodeStrength
+                kingStrike := strike
+                kingSignedGex := math.abs(c) >= math.abs(p) ? c : p
+
+        if rowCount > 1
+            for i = 0 to rowCount - 2
+                float strikeA = array.get(strikes, i)
+                float strikeB = array.get(strikes, i + 1)
+                float netA = array.get(calls, i) + array.get(puts, i)
+                float netB = array.get(calls, i + 1) + array.get(puts, i + 1)
+                bool exactA = netA == 0.0
+                bool crosses = (netA > 0.0 and netB < 0.0) or (netA < 0.0 and netB > 0.0)
+                if na(autoGammaFlip) and exactA
+                    autoGammaFlip := strikeA
+                if na(autoGammaFlip) and crosses and netB != netA
+                    autoGammaFlip := strikeA + (0.0 - netA) * (strikeB - strikeA) / (netB - netA)
+
+        maxAbsGex := maxAbsGex == 0.0 ? 1.0 : maxAbsGex
+        float mappedGammaFlip = gammaFlipMode == "自动计算" and not na(autoGammaFlip) ? autoGammaFlip : manualMappedGammaFlip
+        // ... 后续为支撑/阻力筛选 + 柱体/线/标签绘制 + 汇总表（完整代码请从 Discord #resources 获取）
 ```
 
 </Accordion>
-
-**功能概览**：
-
-| 关键价位 | 颜色（默认） | 说明 |
-|----------|-------------|------|
-| 亚洲时段 H/L | 红色 | 期货 18:00–03:00 ET |
-| 伦敦时段 H/L | 绿色 | 期货 03:00–09:30 ET |
-| 纽约时段 H/L | 橙色 | 期货 09:30–16:59 ET |
-| 周一 H/L | 黄色 | 本周周一的高低点 |
-| 前一周 H/L/Open | 青色 | 上周高低点和开盘价 |
-| 日开盘价 | 白色 | 当日开盘价（期货时段） |
-| 午夜开盘价 | 紫色 | 美东午夜 00:00 的开盘价 |
-
-所有线段在价格被扫过后自动停止延伸（可配置为继续延伸）。重叠价位自动合并标签。
