@@ -26,17 +26,21 @@
             "pages": [
               "learn/dealer-positioning",
               "learn/greeks-for-gex",
+              "learn/understanding-iv",
               "learn/gamma-regimes",
-              "learn/node-lifecycle"
+              "learn/node-lifecycle",
+              "learn/reading-flow"
             ]
           },
           {
             "group": "核心概念",
             "pages": [
               "concepts/what-is-gex",
+              "concepts/standard-vs-dealer-gex",
               "concepts/key-nodes",
               "concepts/expiry-groups",
-              "concepts/color-system"
+              "concepts/color-system",
+              "concepts/dark-pool"
             ]
           },
           {
