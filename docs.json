@@ -60,22 +60,19 @@
             ]
           },
           {
+            "group": "Dealer Chart",
+            "pages": [
+              "dashboard/dealer-chart",
+              "dashboard/uw-flow"
+            ]
+          },
+          {
             "group": "使用方法论",
             "pages": [
               "intended-audience",
               "trading-framework",
               "best-practices",
               "limitations-and-pitfalls"
-            ]
-          },
-          {
-            "group": "GEX Dashboard",
-            "pages": [
-              "dashboard/overview",
-              "dashboard/structure-panel",
-              "dashboard/heatmap-panel",
-              "dashboard/dealer-chart",
-              "dashboard/uw-flow"
             ]
           },
           {
@@ -111,6 +108,14 @@
           {
             "group": "帮助",
             "pages": ["faq", "roadmap"]
+          },
+          {
+            "group": "GEX Dashboard",
+            "pages": [
+              "dashboard/overview",
+              "dashboard/structure-panel",
+              "dashboard/heatmap-panel"
+            ]
           }
         ]
       }
