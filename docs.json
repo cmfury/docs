@@ -40,6 +40,26 @@
             ]
           },
           {
+            "group": "Heatmap 面板",
+            "pages": [
+              "heatmap/overview",
+              "heatmap/reading-the-matrix",
+              "heatmap/structure",
+              "heatmap/multi-expiry",
+              "heatmap/dynamics"
+            ]
+          },
+          {
+            "group": "Heatmap 实战",
+            "pages": [
+              "heatmap/patterns-stacked",
+              "heatmap/patterns-clusters",
+              "heatmap/execution",
+              "heatmap/workflow",
+              "heatmap/misreadings"
+            ]
+          },
+          {
             "group": "使用方法论",
             "pages": [
               "intended-audience",
