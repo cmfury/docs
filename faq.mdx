@@ -52,6 +52,12 @@ Whop 付款成功后，系统通常在几分钟内自动同步。如果超过 5 
 
 ---
 
+**Q：为什么 Heatmap 和 Dealer Chart 上没有 Call Wall / Put Wall / Gamma Flip？**
+
+因为这两个视图不使用"Call 记正、Put 记负"的传统方向假设，而是实时估计做市商的实际定位——节点只分正 Gamma（钉住/减速）与负 Gamma（加速），符号是测出来的，Call/Put 标签在这套口径里不成立。你熟悉的三个概念分别对应到哪里，详见[与传统 GEX 的区别](/concepts/dealer-vs-traditional-gex)。
+
+---
+
 **Q：使用这个平台需要什么基础知识？**
 
 你需要了解期权的基本概念：行权价、到期日、Call 和 Put 是什么。了解隐含波动率（IV）会帮助你更好地使用 Volatility 面板，但不是硬性前提。本平台不提供期权基础教学，详见[适合谁使用](/intended-audience)。
