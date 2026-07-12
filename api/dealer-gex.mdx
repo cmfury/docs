@@ -1,0 +1,68 @@
+---
+title: Dealer GEX API
+description: 通过 Data API 读取 0DTE Dealer GEX 快照与历史序列
+---
+
+## 概览
+
+Dealer GEX 数据集提供当日(0DTE)做市商 gamma 敞口结构的机器可读投影,与产品内 Dealer 视角同源。两个端点:
+
+| 端点 | 用途 | 配额消耗 |
+|---|---|---|
+| `GET /v1/derived/dealer-gex/{ticker}/snapshot` | 最新一轮快照 | 1 unit / 次 |
+| `GET /v1/derived/dealer-gex/{ticker}/history` | 1 分钟粒度历史序列(分页) | 1 unit / 页 |
+
+> Data API 目前处于受控开放阶段。API key 请联系支持获取;鉴权方式为 `Authorization: Bearer sk_live_...`,月度配额随订阅附赠。
+
+## Snapshot 响应字段
+
+```json
+{
+  "data": {
+    "ticker": "SPY",
+    "snapshot_at": "2026-07-08T14:30:01-04:00",
+    "session_date_et": "2026-07-08",
+    "state": "fresh",
+    "spot_usd": 598.42,
+    "strikes": [
+      {
+        "strike_usd": 600.0,
+        "net_gex_usd": -1234567.0,
+        "call_gex_usd": 2345678.0,
+        "put_gex_usd": -3580245.0,
+        "node_type": null
+      }
+    ],
+    "summary": { "...": "结构摘要,字段见下文" }
+  }
+}
+```
+
+- `spot_usd`:该轮快照发布时刻的结构上下文价格样本;缺数据时为 `null`(不会伪装成 0)。
+- `net_gex_usd` 为正 = 做市商净多 gamma,该行权价倾向钉住/支撑;为负 = 净空 gamma,倾向助推/加速。与产品内 Dealer 视角的金/紫配色语义一致。
+- `summary` 为结构摘要:`total_gex_usd`、`king_strike_usd` / `king_value_usd`、`gatekeeper_strike_usd` / `gatekeeper_value_usd`、`gamma_flip_usd`、`call_wall_strike_usd` / `call_wall_value_usd`、`put_wall_strike_usd` / `put_wall_value_usd`、`major_positive_strike_usd` / `major_positive_value_usd`、`major_negative_strike_usd` / `major_negative_value_usd`、`positive_gex_count`、`negative_gex_count`。各节点概念的解读见[关键节点](/concepts/key-nodes)与[与传统 GEX 的区别](/concepts/dealer-vs-traditional-gex)。
+
+### state 值集
+
+| state | 含义 |
+|---|---|
+| `fresh` | 实时聚合正常产出 |
+| `waiting` | 该 ticker 尚未形成有效状态 |
+| `no-0dte` | 当日无 0DTE 合约链(正常空态:`strikes` 为空数组、`summary` 为零值/null) |
+| `degraded` | 恢复链路暂不可用 |
+| `stale` | 上一轮快照超过新鲜度阈值 |
+| `market-closed` | 美股已收盘 |
+
+响应 `_meta.data_freshness_seconds` 表示数据新鲜度,请优先据此判断可用性。
+
+## History 参数
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `from` / `to` | ISO 8601 | 缺省 `from = now - 1 day`;date-only 按 UTC 零点,带时间必须带时区 |
+| `limit` | 整数 | 默认 100,上限 1000 |
+| `cursor` | 不透明串 | 上一页 `_meta.next_cursor` 原样回传 |
+
+- 查询窗口为最近 **90 个 ET 自然日**(窗口下界按 ET 午夜计)。恰好引用边界 ET 日的 `from`(如 date-only 写法)会被钳制到窗口起点正常返回;早于窗口超过一天才返回 `404 RANGE_TOO_DEEP`。
+- 每条 history item 的字段集与 snapshot 完全相同。
+- 未知参数、非法日期、非法 cursor 均返回 `400` 且**不消耗配额**;`401/402/403/429` 同为零消耗。
