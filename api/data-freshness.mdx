@@ -46,7 +46,10 @@ Data API 的请求不会现场去打上游数据源——你读到的是持续�
 | 状态 | code | 含义 | 你该做什么 |
 |---|---|---|---|
 | `404` | `NOT_FOUND` | **目录边界**：请求的键不在服务范围内 | 不要重试；查 `GET /v1/discover` 确认可用能力 |
+| `404` | `RANGE_TOO_DEEP` | **范围问题**：历史查询的 `from` 早于保留窗口，标的本身受支持 | 收窄 `from`/`to` 到窗口内重试；**不要**放弃该标的 |
 | `503` | `READ_MODEL_UNAVAILABLE` | **暂时不可用**：数据此刻缺失但属于服务范围 | 按 `error.retry_after_seconds` 重试 |
+
+同为 `404`，`NOT_FOUND` 与 `RANGE_TOO_DEEP` 的处理方向相反——**程序分支请按 `error.code` 判断，不要只看 HTTP 状态码**。
 
 `503` 的错误体携带 `recoverable: true` 与 `retry_after_seconds`，适合程序自动处理。
 
@@ -57,9 +60,10 @@ Data API 的请求不会现场去打上游数据源——你读到的是持续�
 ## 程序模式小抄
 
 ```text
-200 → 用数据；需要新鲜度时校验内容时间
-202 → sleep(retry_after_seconds) 后重试，最多几轮
-404 → 放弃该键；必要时查 discover
-503 → sleep(retry_after_seconds) 后重试；多轮无进展则放弃
-429 → 按 Retry-After 退避
+200                    → 用数据；需要新鲜度时校验内容时间
+202                    → sleep(retry_after_seconds) 后重试，最多几轮
+404 NOT_FOUND          → 放弃该键；必要时查 discover
+404 RANGE_TOO_DEEP     → 收窄 from/to 到保留窗口内重试，不要放弃标的
+503                    → sleep(retry_after_seconds) 后重试；多轮无进展则放弃
+429                    → 按 Retry-After 退避
 ```
