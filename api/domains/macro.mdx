@@ -14,12 +14,12 @@ description: 经济指标、商品与汇率
 | `macro.forex_rate` | `/v1/macro/forex-rate` | 汇率即期 |
 | `macro.forex_intraday` | `/v1/macro/forex-intraday` | 汇率日内序列 |
 | `macro.forex_history` | `/v1/macro/forex-history` | 汇率历史 |
-| `macro.analytics_window` | `/v1/macro/analytics-window` | 跨资产分析窗口 |
+| `macro.analytics_window` | `/v1/macro/analytics-window` | 跨资产分析窗口。**必填 `symbols`（逗号分隔）/ `range`（相对窗口如 `1month` / `30day` / `1year`，或 ISO 起始日）/ `calculations`**（如 `CORRELATION`，全集见 Reference） |
 
 ## 示例
 
 ```bash
-curl -s "https://api.yehangshe.com/v1/macro/economy-indicator/treasury-yield?maturity=10y" \
+curl -s "https://api.yehangshe.com/v1/macro/economy-indicator/treasury-yield?maturity=10year" \
   -H "Authorization: Bearer sk_live_xxxxxxxx"
 ```
 

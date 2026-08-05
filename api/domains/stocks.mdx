@@ -11,9 +11,9 @@ description: OHLC、公司信息、分红拆股、技术指标与 lit 成交
 
 | command | 路径 | 内容 |
 |---|---|---|
-| `stocks.ohlc` | `/v1/stocks/ohlc/{ticker}` | OHLC 行情序列 |
+| `stocks.ohlc` | `/v1/stocks/ohlc/{ticker}` | OHLC 行情序列。**必填 `candle_size`**（`1m`/`5m`/`10m`/`15m`/`30m`/`1h`/`4h`/`1d`/`1w`） |
 | `stocks.stock_state` | `/v1/stocks/stock-state/{ticker}` | 当前交易状态概览 |
-| `stocks.technical_indicator` | `/v1/stocks/technical-indicator/{ticker}` | 技术指标序列 |
+| `stocks.technical_indicator` | `/v1/stocks/technical-indicator/{ticker}` | 技术指标序列。**必填 `function`**（TA 函数名如 `EMA` / `MACD` / `BBANDS`，全集见 Reference），可选 `interval` / `series_type` / `time_period` |
 
 **公司信息（按标的）**
 
@@ -42,7 +42,7 @@ description: OHLC、公司信息、分红拆股、技术指标与 lit 成交
 ## 示例
 
 ```bash
-curl -s "https://api.yehangshe.com/v1/stocks/ohlc/AAPL" \
+curl -s "https://api.yehangshe.com/v1/stocks/ohlc/AAPL?candle_size=1d" \
   -H "Authorization: Bearer sk_live_xxxxxxxx"
 ```
 

@@ -10,7 +10,7 @@ description: 美国国会议员的证券交易披露流
 | command | 路径 | coverage | 内容 |
 |---|---|---|---|
 | `congress.recent_trades` | `/v1/congress/recent-trades` | market-wide | 最新披露的议员交易（议员、职务、买卖方向、金额区间、标的、交易日与披露日） |
-| `congress.trader_reports` | `/v1/congress/trader-reports/{politician}` | on-demand | 指定议员的交易报告 |
+| `congress.trader_reports` | `/v1/congress/trader-reports/{politician}` | on-demand | 指定议员的交易报告。`{politician}` 为**议员全名**（如 `Nancy Pelosi`，URL 编码空格），规范写法从 `politicians` 名录的 `member_name` 取 |
 | `congress.late_reports` | `/v1/congress/late-reports` | market-wide | 超期披露的报告 |
 | `congress.politicians` | `/v1/congress/politicians` | market-wide | 议员名录 |
 

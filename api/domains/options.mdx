@@ -12,7 +12,7 @@ description: 期权链快照、OI 与成交量分布、max pain、单合约行�
 | command | 路径 | 内容 |
 |---|---|---|
 | `options.chain_snapshot` | `/v1/options/chain-snapshot/{ticker}` | 单到期日全链快照：各合约的报价、成交、OI 与希腊值。**必填 `expiration`**（`YYYY-MM-DD`，不支持一次取全部到期） |
-| `options.atm_chains` | `/v1/options/atm-chains/{ticker}` | ATM 附近的链切片 |
+| `options.atm_chains` | `/v1/options/atm-chains/{ticker}` | ATM 附近的链切片。**必填 `expiration`** |
 | `options.chain_history` | `/v1/options/chain-history/{ticker}` | 链快照的历史回溯。**必填 `expiration` / `right`（C 或 P）/ `from` / `to` / `interval`** |
 | `options.expiry_breakdown` | `/v1/options/expiry-breakdown/{ticker}` | 按到期日分解的结构概览 |
 | `options.oi_change` | `/v1/options/oi-change/{ticker}` | 未平仓合约（OI）变动 |
