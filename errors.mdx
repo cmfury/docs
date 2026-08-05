@@ -98,7 +98,7 @@ Key 无效或已被撤销。到[账户页](https://yehangshe.com/app/account)确
 <a id="SERVICE_DISABLED" />
 ### SERVICE_DISABLED — 503
 
-该能力当前未开放。这不是故障，是服务侧的开关状态；关注 [changelog](/api/changelog) 了解能力上线节奏。
+该能力当前未提供服务，两种可能：**能力尚未开放**（关注 [changelog](/api/changelog) 了解上线节奏），或**短暂的维护 / 恢复窗口**（如 Dealer Heatmap 的服务恢复期，通常分钟级）。本错误不携带 `retry_after_seconds`，**不适合程序自动重试循环**——与 [`READ_MODEL_UNAVAILABLE`](#READ_MODEL_UNAVAILABLE)（带重试间隔的可自动重试错误）区分处理：收到本错误应降级处理，稍后低频重试；持续数日不恢复则按「未开放」理解。
 
 ## 限流与配额
 
