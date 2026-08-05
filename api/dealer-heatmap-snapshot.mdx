@@ -5,7 +5,7 @@ description: 通过 Data API 读取多到期 Dealer Heatmap 网格快照与单 c
 
 ## 概览
 
-Dealer Heatmap 数据集提供 90 天多到期 Dealer GEX 网格的最新快照与单 cell 的分钟级历史,与 [Heatmap 面板](/heatmap/overview)同一读模型、同一投影。
+Dealer Heatmap 数据集提供 90 天多到期 Dealer GEX 网格的最新快照与单 cell 的分钟级历史,与 [Heatmap 面板](/heatmap/overview)同源同口径——API 返回的就是面板正在展示的数据。
 
 | 端点 | 用途 | 配额消耗 |
 |---|---|---|
@@ -61,7 +61,7 @@ Dealer Heatmap 数据集提供 90 天多到期 Dealer GEX 网格的最新快照�
 - **`scale`**:面板着色所用的比例参数,供你在自己的界面里复刻同款颜色映射。
 - **到期覆盖**:网格覆盖未来 90 天的挂牌到期列(含当日,如适用)。当日 0DTE 的专用快照与历史序列见 [Dealer GEX API](/api/dealer-gex)。
 - **cells 缺席语义**:属于真实挂牌面的 `行权价 × 到期` 组合即使敞口为 0 也会以 `net_dealer_gex_usd: 0` 返回;不在挂牌面或尚未水合的组合缺席,客户端按 0 处理即可。
-- `market_status`(`open` / `closed`)表示交易时段,与 `state`(读模型数据质量:`fresh` / `stale` / `waiting` / `degraded` / `disabled`)语义分离。
+- `market_status`(`open` / `closed`)表示交易时段,与 `state`(数据质量:`fresh` / `stale` / `waiting` / `degraded` / `disabled`)语义分离。
 
 ## Cell 历史(cell-history)
 
@@ -86,6 +86,6 @@ curl -s "https://api.yehangshe.com/v1/derived/heatmap/SPY/cell-history?expiratio
 
 ## 新鲜度与频率
 
-读模型按秒级节奏物化,响应 `_meta.data_freshness_seconds` 为权威新鲜度信号。轮询建议不高于 1 次/秒——更高频率不会拿到更新的数据,只会消耗配额与触发限流。
+数据按秒级节奏更新,响应 `_meta.data_freshness_seconds` 为权威新鲜度信号。轮询建议不高于 1 次/秒——更高频率不会拿到更新的数据,只会消耗配额与触发限流。
 
 Heatmap 的服务链路处于非 serving 状态(恢复中、维护窗口等)时,两个端点返回 `503 SERVICE_DISABLED`(见[错误处理](/errors#SERVICE_DISABLED)),稍后重试即可;快照与历史的更多行为约定见[数据新鲜度](/api/data-freshness)与[通用约定](/api/conventions)。

@@ -65,7 +65,7 @@ curl -s https://api.yehangshe.com/v1/derived/dealer-gex/SPY/snapshot \
 ```
 
 <Note>
-部分按标的查询的端点在**首次**请求某个冷门标的时会返回 `202`——这不是错误，表示数据正在物化，按响应里的 `retry_after_seconds` 稍后重试即可（通常几秒内就绪）。机制详见[数据新鲜度](/api/data-freshness)。
+部分按标的查询的端点在**首次**请求某个冷门标的时会返回 `202`——这不是错误，表示数据正在准备，按响应里的 `retry_after_seconds` 稍后重试即可（通常几秒内就绪）。行为详见[数据新鲜度](/api/data-freshness)。
 </Note>
 
 ## 下一步

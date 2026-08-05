@@ -127,12 +127,12 @@ Key 无效或已被撤销。到[账户页](https://yehangshe.com/app/account)确
 <a id="UPSTREAM_ERROR" />
 ### UPSTREAM_ERROR — 502
 
-上游数据源故障。数据读取类端点通常会以旧值兜底（见[数据新鲜度](/api/data-freshness)），出现本错误说明该请求无法降级；稍后重试。
+数据链路故障。数据读取类端点通常会以旧值兜底（见[数据新鲜度](/api/data-freshness)），出现本错误说明该请求无法降级；稍后重试。
 
 <a id="UPSTREAM_TIMEOUT" />
 ### UPSTREAM_TIMEOUT — 504
 
-上游超时。同上，稍后重试。
+数据链路超时。同上，稍后重试。
 
 <a id="INTERNAL_ERROR" />
 ### INTERNAL_ERROR — 500

@@ -48,6 +48,6 @@ curl -s "https://api.yehangshe.com/v1/stocks/ohlc/AAPL?candle_size=1d" \
 
 ## 注意点
 
-- `company_profile` 对 ETF、指数类标的没有数据（上游披露口径限制），会得到不可用响应——这类标的请用 `stocks.info`。
+- `company_profile` 对 ETF、指数类标的没有数据（它们不是公司主体，本就没有公司画像），会得到不可用响应——这类标的请用 `stocks.info`。
 - lit trades 指交易所公开撮合的成交，与暗池成交互补；两边合看才是全貌。
 - 历史类端点受保留窗口约束，过深的 `from` 返回 `404 RANGE_TOO_DEEP`（见[错误处理](/errors#RANGE_TOO_DEEP)）。
