@@ -1,0 +1,30 @@
+---
+title: institutions — 机构持仓
+description: 机构 13F 持仓、变动与按标的的机构持股结构
+---
+
+机构投资者的 13F 持仓数据：机构名录、最新申报、单机构的持仓与活动、按标的看机构持股结构。季度披露节奏。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `institutions.institutions` | `/v1/institutions` | market-wide | 机构名录 |
+| `institutions.latest_filings` | `/v1/institutions/latest-filings` | market-wide | 最新 13F 申报流 |
+| `institutions.holdings` | `/v1/institutions/holdings/{name}` | on-demand | 指定机构的持仓明细 |
+| `institutions.activity` | `/v1/institutions/activity/{name}` | on-demand | 指定机构的持仓变动 |
+| `institutions.sectors` | `/v1/institutions/sectors/{name}` | on-demand | 指定机构的板块配置 |
+| `institutions.ownership_by_ticker` | `/v1/institutions/ownership-by-ticker/{ticker}` | on-demand | 单标的的机构持股结构 |
+
+## 示例
+
+```bash
+curl -s "https://api.yehangshe.com/v1/institutions/ownership-by-ticker/NVDA" \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- **13F 是季度快照 + 最长 45 天申报滞后**：你看到的持仓可能是一个半月前的状态。本域数据**不会**被标注 stale（见[数据新鲜度](/api/data-freshness)）——「几个月前」就是这类数据的正常新鲜度，以内容时间自行判断。
+- 13F 只覆盖多头股票类头寸：空头、多数衍生品与非美资产不在申报范围内，「机构清仓」可能只是换了申报范围外的形式。
+- 机构名（`{name}`）参数的规范写法从 `institutions.institutions` 名录取，不要凭印象拼写。

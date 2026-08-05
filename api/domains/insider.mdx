@@ -1,0 +1,30 @@
+---
+title: insider — 内部人交易
+description: 上市公司高管与董事的交易披露
+---
+
+上市公司内部人（高管、董事、大股东）的证券交易披露：全市场最新披露流、按标的与按板块的聚合视角、买卖力度对比。披露驱动、日更节奏。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `insider.transactions` | `/v1/insider/transactions` | market-wide | 全市场最新内部人交易披露 |
+| `insider.by_ticker` | `/v1/insider/by-ticker/{ticker}` | on-demand | 单标的的内部人交易记录 |
+| `insider.ticker_flow` | `/v1/insider/ticker-flow/{ticker}` | on-demand | 单标的内部人资金流向聚合 |
+| `insider.sector_flow` | `/v1/insider/sector-flow/{sector}` | on-demand | 板块级内部人资金流向 |
+| `insider.buy_sells_by_ticker` | `/v1/insider/buy-sells-by-ticker/{ticker}` | on-demand | 单标的买入/卖出力度对比 |
+| `insider.market_buy_sells` | `/v1/insider/market-buy-sells` | market-wide | 全市场内部人买卖力度 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/insider/by-ticker/TSLA \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- 内部人交易的法定披露时限通常是交易后**两个工作日**，比国会披露及时得多，但仍非实时。
+- 卖出的解读需要语境：计划性减持（如既定的交易计划）与主动卖出信号含义不同；买入通常比卖出更有信息量——内部人买入只有一个理由。
+- 板块参数（`{sector}`）的合法取值见 Reference；与 `stocks.sector_tickers` 的板块口径一致。

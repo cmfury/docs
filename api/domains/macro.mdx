@@ -1,0 +1,31 @@
+---
+title: macro — 宏观
+description: 经济指标、商品与汇率
+---
+
+宏观维度：经济指标序列（利率、通胀等）、大宗商品行情、外汇汇率（即期、日内与历史）、跨资产分析窗口。
+
+## 端点
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `macro.economy_indicator` | `/v1/macro/economy-indicator/{indicator}?interval=...&maturity=...` | 经济指标序列（指标名与可选期限参数见 Reference） |
+| `macro.commodities` | `/v1/macro/commodities/{name}?interval=...` | 商品行情序列 |
+| `macro.forex_rate` | `/v1/macro/forex-rate` | 汇率即期 |
+| `macro.forex_intraday` | `/v1/macro/forex-intraday` | 汇率日内序列 |
+| `macro.forex_history` | `/v1/macro/forex-history` | 汇率历史 |
+| `macro.analytics_window` | `/v1/macro/analytics-window` | 跨资产分析窗口。**必填 `symbols`（逗号分隔）/ `range`（相对窗口如 `1month` / `30day` / `1year`，或 ISO 起始日）/ `calculations`**（如 `CORRELATION`，全集见 Reference） |
+
+## 示例
+
+```bash
+curl -s "https://api.yehangshe.com/v1/macro/economy-indicator/treasury-yield?maturity=10year" \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+<Note>`{indicator}` / `{name}` 的合法取值清单与 `interval` / `maturity` 的可选值以顶部「API Reference」标签页为准，非法取值返回 `400`，不会静默回退。</Note>
+
+## 注意点
+
+- 经济指标的发布节奏各不相同（日/周/月），以响应内容时间为准判断最新一期。
+- 汇率与商品数据主要服务于跨资产语境（如美元强弱对冲逻辑），不定位为高频行情源。

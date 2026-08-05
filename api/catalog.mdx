@@ -1,0 +1,42 @@
+---
+title: 数据目录总览
+description: 12 个数据领域的地图与覆盖面模型
+---
+
+Data API 的数据按领域组织，路径形如 `/v1/{领域}/...`。本章每个领域一页导读（有什么、怎么用、口径注意点）；字段级定义见顶部「API Reference」标签页或 [OpenAPI spec](https://api.yehangshe.com/v1/openapi.json)。
+
+## 领域地图
+
+| 领域 | 端点数 | 内容 |
+|---|---|---|
+| [derived（自研衍生）](/api/dealer-gex) | 5 | 0DTE Dealer GEX、Dealer Heatmap、Standard GEX——与产品图表同源 |
+| [options](/api/domains/options) | 16 | 期权链结构：OI/成交量分布、max pain、单合约行情与希腊值序列 |
+| [stocks](/api/domains/stocks) | 12 | 个股：OHLC、公司信息、分红拆股、技术指标、lit 成交 |
+| [volatility](/api/domains/volatility) | 11 | 波动率：IV rank、期限结构、已实现波动、偏斜与异常 |
+| [congress](/api/domains/congress) | 4 | 美国国会议员交易披露 |
+| [fundamentals](/api/domains/fundamentals) | 10 | 财报三表、盘前盘后财报日历、盈利历史与预期 |
+| [market](/api/domains/market) | 7 | 市场面：涨跌榜、全市场期权成交、经济/FDA/IPO 日历 |
+| [macro](/api/domains/macro) | 6 | 宏观：经济指标、商品、汇率 |
+| [insider](/api/domains/insider) | 6 | 上市公司内部人（高管/董事）交易披露 |
+| [institutions](/api/domains/institutions) | 6 | 机构 13F 持仓与变动 |
+| [shorts](/api/domains/shorts) | 6 | 做空：short interest、FTD、做空量与比率 |
+| [darkpool](/api/domains/darkpool) | 3 | 暗池成交与价格档位 |
+
+<Note>目录会随能力上线持续扩展。**运行时的权威目录是 `GET /v1/discover`**——它返回你当前 Key 实际可用的全部能力（`capabilities` 与逐条的 `capabilities_detail`），文档如与其不一致，以 discover 为准。</Note>
+
+## 覆盖面（coverage）模型
+
+每个端点属于三种覆盖面之一，`capabilities_detail` 中逐条标注：
+
+| coverage | 含义 | 调用体验 |
+|---|---|---|
+| `market-wide` | 全市场一份数据（如涨跌榜、最新披露流） | 无标的参数，直接调用 |
+| `on-demand` | 按标的准备 | 任意标的可查；**首次**查询冷门标的可能 `202`，几秒后重试即返回（见[数据新鲜度](/api/data-freshness)） |
+| `working-set` | 限定标的池（derived 域 = 产品内 Dealer 覆盖票池） | 池内标的直接调用；池外返回 `404` |
+
+## 通用参数惯例
+
+- 按标的查询：标的在路径中（`/v1/shorts/data/{ticker}`），大写代码。
+- 按合约查询（options 域）：OSI 合约代码在路径中（`/v1/options/contract-daily/{contract}`）。
+- 历史/列表类：`from` / `to` / `limit` / `cursor`，语义见[通用约定](/api/conventions)。
+- 各端点的完整参数与响应结构：顶部「API Reference」标签页。

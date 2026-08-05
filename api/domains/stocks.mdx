@@ -1,0 +1,53 @@
+---
+title: stocks — 个股
+description: OHLC、公司信息、分红拆股、技术指标与 lit 成交
+---
+
+个股基础数据：行情序列（OHLC）、公司画像（简介、上市信息、所属板块）、公司行为（分红、拆股）、技术指标，以及交易所公开成交（lit trades，与[暗池](/api/domains/darkpool)相对）。
+
+## 端点
+
+**行情与状态（按标的）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `stocks.ohlc` | `/v1/stocks/ohlc/{ticker}` | OHLC 行情序列。**必填 `candle_size`**（`1m`/`5m`/`10m`/`15m`/`30m`/`1h`/`4h`/`1d`/`1w`） |
+| `stocks.stock_state` | `/v1/stocks/stock-state/{ticker}` | 当前交易状态概览 |
+| `stocks.technical_indicator` | `/v1/stocks/technical-indicator/{ticker}` | 技术指标序列。**必填 `function`**（TA 函数名如 `EMA` / `MACD` / `BBANDS`，全集见 Reference），可选 `interval` / `series_type` / `time_period` |
+
+**公司信息（按标的）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `stocks.info` | `/v1/stocks/info/{ticker}` | 标的基本信息 |
+| `stocks.company_profile` | `/v1/stocks/company-profile/{ticker}` | 公司画像（适用于普通股；ETF/指数类无此数据） |
+| `stocks.dividends` | `/v1/stocks/dividends/{ticker}` | 分红历史 |
+| `stocks.splits` | `/v1/stocks/splits/{ticker}` | 拆股历史 |
+
+**成交（lit）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `stocks.lit_trades_recent` | `/v1/stocks/lit-trades-recent` | 全市场最新 lit 大额成交 |
+| `stocks.lit_trades_by_ticker` | `/v1/stocks/lit-trades-by-ticker/{ticker}` | 单标的 lit 成交 |
+
+**市场清单（全市场）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `stocks.listings` | `/v1/stocks/listings` | 上市标的清单 |
+| `stocks.ticker_exchanges` | `/v1/stocks/ticker-exchanges` | 标的与交易所对照 |
+| `stocks.sector_tickers` | `/v1/stocks/sector-tickers?sector=...` | 按板块列标的 |
+
+## 示例
+
+```bash
+curl -s "https://api.yehangshe.com/v1/stocks/ohlc/AAPL?candle_size=1d" \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- `company_profile` 对 ETF、指数类标的没有数据（它们不是公司主体，本就没有公司画像），会得到不可用响应——这类标的请用 `stocks.info`。
+- lit trades 指交易所公开撮合的成交，与暗池成交互补；两边合看才是全貌。
+- 历史类端点受保留窗口约束，过深的 `from` 返回 `404 RANGE_TOO_DEEP`（见[错误处理](/errors#RANGE_TOO_DEEP)）。

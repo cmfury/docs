@@ -119,6 +119,61 @@
             ]
           }
         ]
+      },
+      {
+        "tab": "开发者",
+        "groups": [
+          {
+            "group": "开始使用",
+            "pages": [
+              "api/introduction",
+              "api/quickstart",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "核心机制",
+            "pages": [
+              "api/quota-and-rate-limits",
+              "api/data-freshness",
+              "errors",
+              "api/conventions"
+            ]
+          },
+          {
+            "group": "自研数据集",
+            "pages": ["api/dealer-gex", "api/dealer-heatmap-snapshot"]
+          },
+          {
+            "group": "数据目录",
+            "pages": [
+              "api/catalog",
+              "api/domains/options",
+              "api/domains/stocks",
+              "api/domains/volatility",
+              "api/domains/congress",
+              "api/domains/fundamentals",
+              "api/domains/market",
+              "api/domains/macro",
+              "api/domains/insider",
+              "api/domains/institutions",
+              "api/domains/shorts",
+              "api/domains/darkpool"
+            ]
+          },
+          {
+            "group": "MCP",
+            "pages": ["mcp/overview", "mcp/setup", "mcp/patterns"]
+          },
+          {
+            "group": "其他",
+            "pages": ["api/changelog"]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "openapi": "https://api.yehangshe.com/v1/openapi.json"
       }
     ]
   },

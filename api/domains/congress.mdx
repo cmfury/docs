@@ -1,0 +1,29 @@
+---
+title: congress — 国会交易披露
+description: 美国国会议员的证券交易披露流
+---
+
+美国国会议员依法披露的证券交易：最新披露流、按议员的报告卷宗、迟报清单与议员名录。披露驱动、日更节奏。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `congress.recent_trades` | `/v1/congress/recent-trades` | market-wide | 最新披露的议员交易（议员、职务、买卖方向、金额区间、标的、交易日与披露日） |
+| `congress.trader_reports` | `/v1/congress/trader-reports/{politician}` | on-demand | 指定议员的交易报告。`{politician}` 为**议员全名**（如 `Nancy Pelosi`，URL 编码空格），规范写法从 `politicians` 名录的 `member_name` 取 |
+| `congress.late_reports` | `/v1/congress/late-reports` | market-wide | 超期披露的报告 |
+| `congress.politicians` | `/v1/congress/politicians` | market-wide | 议员名录 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/congress/recent-trades \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- **两个时间轴**：`transaction_date` 是交易发生日，`disclosed_at` 是披露日。法定披露窗口最长可达 45 天，跟踪「谁刚买了什么」应以披露日为轴；回测交易信号则要小心用披露日对齐，避免引入未来函数。
+- **金额是区间不是精确值**：披露制度只要求申报金额区间（`value_range_usd`），无法得到准确成交金额与股数。
+- 部分披露以纸质/延迟形式提交，`late_reports` 单独列出超期项——迟报本身有时也是信息。
+- 标的字段可能为空（如债券、基金类资产的披露），程序侧注意 `null` 处理。

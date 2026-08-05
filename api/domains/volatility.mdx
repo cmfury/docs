@@ -1,0 +1,42 @@
+---
+title: volatility — 波动率
+description: IV rank、期限结构、已实现波动、偏斜与波动率异常
+---
+
+波动率维度的全套视角：隐含波动率的水平与历史分位（IV rank）、期限结构、已实现波动率、隐含-已实现差（方差风险溢价）、风险逆转偏斜，以及全市场的波动率异常与性格分类榜单。
+
+## 端点
+
+**按标的**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `volatility.iv_rank` | `/v1/volatility/iv-rank/{ticker}` | IV 水平与历史分位（rank/percentile） |
+| `volatility.interpolated_iv` | `/v1/volatility/interpolated-iv/{ticker}` | 插值 IV 序列 |
+| `volatility.term_structure` | `/v1/volatility/term-structure/{ticker}` | IV 期限结构 |
+| `volatility.realized` | `/v1/volatility/realized/{ticker}` | 已实现波动率 |
+| `volatility.stats` | `/v1/volatility/stats/{ticker}` | 波动率统计概览 |
+| `volatility.variance_risk_premium` | `/v1/volatility/variance-risk-premium/{ticker}` | 方差风险溢价（IV−RV 差） |
+| `volatility.risk_reversal_skew` | `/v1/volatility/risk-reversal-skew/{ticker}` | 风险逆转偏斜 |
+| `volatility.anomaly` | `/v1/volatility/anomaly/{ticker}` | 该标的的波动率异常信号 |
+| `volatility.character` | `/v1/volatility/character/{ticker}` | 波动率性格分类 |
+
+**全市场榜单**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `volatility.anomaly_top` | `/v1/volatility/anomaly-top` | 波动率异常榜 |
+| `volatility.character_top` | `/v1/volatility/character-top` | 波动率性格榜 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/volatility/iv-rank/NVDA \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- IV rank / percentile 的取值依赖回看窗口，窗口定义见各端点 Reference 的字段说明；跨数据商比较 IV rank 时先核对窗口口径。
+- 期限结构与偏斜类数据在临近大事件（财报、宏观数据）时形态变化剧烈，属正常市场行为而非数据异常。
+- 产品内的 [Volatility 面板](/volatility/iv-rank)使用同源数据，页面解读可直接映射到 API 字段。

@@ -1,0 +1,27 @@
+---
+title: darkpool — 暗池
+description: 暗池成交流与价格档位分布
+---
+
+场外/暗池成交数据：全市场最新暗池大额成交流、单标的的暗池成交记录、按价格档位聚合的暗池成交量分布。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `darkpool.recent` | `/v1/darkpool/recent` | market-wide | 全市场最新暗池成交 |
+| `darkpool.by_ticker` | `/v1/darkpool/by-ticker/{ticker}` | on-demand | 单标的暗池成交记录 |
+| `darkpool.volume_price_levels` | `/v1/darkpool/volume-price-levels/{ticker}` | on-demand | 暗池成交量的价格档位分布 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/darkpool/volume-price-levels/SPY \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- **暗池成交打印存在申报延迟**：场外成交按监管规则事后上报，时间戳解读时注意成交时刻与打印时刻可能存在间隔。
+- 价格档位分布（`volume_price_levels`）常被用作「机构兴趣价位」的参考——大量暗池成交聚集的价位往往与后续的支撑/阻力行为相关，但这是统计观察而非机制保证。
+- 暗池数据与 [lit 成交](/api/domains/stocks)（交易所公开成交）互补，两者合计才接近全市场成交全貌。

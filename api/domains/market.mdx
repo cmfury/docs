@@ -1,0 +1,31 @@
+---
+title: market — 市场面
+description: 涨跌榜、全市场期权成交、OI 变动榜与三大日历
+---
+
+市场整体视角：涨跌榜、全市场期权成交总量、OI 变动榜、相关性，以及经济数据 / FDA / IPO 三个事件日历。绝大多数是 market-wide 端点，无参数直接调用。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `market.movers` | `/v1/market/movers` | market-wide | 涨跌幅榜 |
+| `market.total_options_volume` | `/v1/market/total-options-volume` | market-wide | 全市场期权成交总量（盘中累计增长，收盘定格） |
+| `market.oi_change` | `/v1/market/oi-change` | market-wide | 全市场 OI 变动榜 |
+| `market.correlations` | `/v1/market/correlations` | on-demand | 标的间相关性 |
+| `market.economic_calendar` | `/v1/market/economic-calendar` | market-wide | 经济数据日历 |
+| `market.fda_calendar` | `/v1/market/fda-calendar` | market-wide | FDA 事件日历 |
+| `market.ipo_calendar` | `/v1/market/ipo-calendar` | market-wide | IPO 日历 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/market/movers \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- `total_options_volume` 是盘中持续累计的量：日内每次读数都在增长，比较两日成交要用同一时点或收盘值。
+- 日历类数据以事件的公布时间为轴，时区语义见[通用约定](/api/conventions)。
+- OI 变动榜的口径与 [options 域](/api/domains/options)一致：OI 为上一交易日结算口径。
