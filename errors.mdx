@@ -20,7 +20,7 @@ description: Data API 错误信封与全部错误码——含义与处理方式
 }
 ```
 
-可恢复的错误额外携带 `recoverable: true` 与 `retry_after_seconds`（body 为权威；`Retry-After` 响应头同时下发）。向支持反馈问题时请附上 `request_id`。
+可恢复的错误额外携带 `recoverable: true` 与 `retry_after_seconds`（body 为权威；`Retry-After` 响应头同时下发）。反馈问题时请附上 `request_id`（见[页尾](#get-help)）。
 
 除标注外，下列错误响应均**不消耗**月配额。
 
@@ -138,3 +138,8 @@ Key 无效或已被撤销。到[账户页](https://yehangshe.com/app/account)确
 ### INTERNAL_ERROR — 500
 
 未预期的服务端错误。稍后重试；持续出现时请附 `request_id` 反馈。
+
+<a id="get-help" />
+## 还是解决不了？
+
+来 [Discord 社区](https://discord.gg/rcktTvUjKw)交流：描述你的问题，附上响应里的 `request_id` 与发生时间（含时区），能大幅加快定位。文档没讲清楚的地方也欢迎直接提——它会变成下一次更新。
