@@ -1,0 +1,39 @@
+---
+title: MCP 使用模式
+description: 让 agent 用得又快又省的实践与常见坑
+---
+
+## 先搜再查
+
+覆盖全目录的标准流程是两步：
+
+1. **`search_datasets`** 用自然语言找数据集——例如搜「国会议员交易」「short interest」「IV rank」。返回匹配的 command id、参数说明，需要响应结构时提高 `detail` 档位。
+2. **`dataset_query`** 按 command id + 参数执行——例如 `{ "command": "congress.recent_trades" }`。
+
+**不要让 agent 凭记忆猜 command id**：猜错时错误信息会提示回到 `search_datasets`，但直接先搜索省一轮往返。
+
+Dealer 数据不需要这个流程——`dealer_gex_snapshot` 等直达工具一步到位。
+
+## 处理 202（数据物化中）
+
+`dataset_query` 遇到首次查询的冷门标的时，会返回**普通结果文本**（不是错误）说明数据正在准备、几秒后重试。这是设计行为：agent 应按提示等待后重试同一调用，通常一两轮内命中。不要把它当失败放弃。机制说明见[数据新鲜度](/api/data-freshness)。
+
+## 控制响应体积
+
+- `dealer_heatmap_snapshot` 的完整网格很大，日常解读**优先 `format=summary`**；只有需要逐单元格数值时才用 `full`。
+- `dataset_query` 对超大结果会返回可自纠的错误文案（如何收窄查询）；按提示降低 `limit`、缩短时间范围即可。
+- 历史类查询让 agent 明确给出时间范围，避免默认拉全量分页。
+
+## 配额意识
+
+- 会话开头用 `discover_datasets` 自检一次（免费），拿到剩余配额与可用能力。
+- 计费规则对 agent 友好：只有成功返回数据的调用计费，搜索目录、202 重试、参数试错都不消耗配额（见[配额与限流](/api/quota-and-rate-limits)）。
+
+## 常见坑
+
+| 现象 | 原因与解法 |
+|---|---|
+| agent 把 command 当工具名调用 | command（如 `congress.recent_trades`）要通过 `dataset_query` 执行，不是独立工具 |
+| 401 / 402 | Key 无效或订阅失效，见[鉴权](/api/authentication)；402 在恢复订阅后自动恢复 |
+| 搜不到想要的数据 | 换关键词再搜（中英文都试）；仍没有则该数据可能不在目录内——以 `discover_datasets` 的能力清单为准 |
+| 反复 429 | agent 并发/频率过高，让它串行调用并尊重重试间隔 |

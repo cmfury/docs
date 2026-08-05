@@ -1,0 +1,42 @@
+---
+title: fundamentals — 财报与基本面
+description: 财报三表、盈利历史与预期、盘前盘后财报日历
+---
+
+公司基本面：财报三表（资产负债、现金流、利润表）、综合财务数据、盈利历史与分析师预期，以及「今天谁发财报」的盘前/盘后日历。财报季外按季度节奏慢变。
+
+## 端点
+
+**按标的**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `fundamentals.financials` | `/v1/fundamentals/financials/{ticker}` | 综合财务数据 |
+| `fundamentals.balance_sheets` | `/v1/fundamentals/balance-sheets/{ticker}` | 资产负债表序列 |
+| `fundamentals.cash_flows` | `/v1/fundamentals/cash-flows/{ticker}` | 现金流量表序列 |
+| `fundamentals.income_statements` | `/v1/fundamentals/income-statements/{ticker}` | 利润表序列 |
+| `fundamentals.fundamental_breakdown` | `/v1/fundamentals/fundamental-breakdown/{ticker}` | 基本面分解概览 |
+| `fundamentals.earnings_history` | `/v1/fundamentals/earnings-history/{ticker}` | 历史财报表现（实际 vs 预期） |
+| `fundamentals.earnings_estimates` | `/v1/fundamentals/earnings-estimates/{ticker}` | 分析师盈利预期 |
+| `fundamentals.stock_earnings` | `/v1/fundamentals/stock-earnings/{ticker}` | 该标的的财报事件信息 |
+
+**财报日历（全市场）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `fundamentals.earnings_premarket` | `/v1/fundamentals/earnings-premarket` | 盘前发布财报的公司 |
+| `fundamentals.earnings_afterhours` | `/v1/fundamentals/earnings-afterhours` | 盘后发布财报的公司 |
+
+## 示例
+
+```bash
+# 今天盘后谁发财报
+curl -s https://api.yehangshe.com/v1/fundamentals/earnings-afterhours \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- 三表数据按报告期组织，注意区分财年（fiscal）与日历年——部分公司财年错位。
+- 本域属慢披露源，不标注 stale（见[数据新鲜度](/api/data-freshness)）；财报季外一个季度不更新是正常状态。
+- 财报日历 + [volatility 域](/api/domains/volatility)的期限结构/IV 联用，是事件前波动率分析的标准组合。

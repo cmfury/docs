@@ -1,0 +1,65 @@
+---
+title: MCP 接入配置
+description: 在 Claude Code、Cursor 与其他 MCP 客户端中接入
+---
+
+<Info>先在[账户页](https://yehangshe.com/app/account)生成 API Key（见[快速开始](/api/quickstart)），下面把 `sk_live_xxxxx` 替换为你的 Key。</Info>
+
+## Claude Code
+
+一条命令：
+
+```bash
+claude mcp add --transport http yehangshe https://mcp.yehangshe.com/mcp \
+  --header "Authorization: Bearer sk_live_xxxxx"
+```
+
+或在项目的 `.mcp.json` 中等价配置：
+
+```json
+{
+  "mcpServers": {
+    "yehangshe": {
+      "type": "http",
+      "url": "https://mcp.yehangshe.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk_live_xxxxx"
+      }
+    }
+  }
+}
+```
+
+## Cursor
+
+在 `~/.cursor/mcp.json`（或项目 `.cursor/mcp.json`）中添加：
+
+```json
+{
+  "mcpServers": {
+    "yehangshe": {
+      "url": "https://mcp.yehangshe.com/mcp",
+      "headers": {
+        "Authorization": "Bearer sk_live_xxxxx"
+      }
+    }
+  }
+}
+```
+
+## 其他 MCP 客户端
+
+任何支持 **Streamable HTTP + 自定义 header** 的 MCP 客户端都可以接入，要素只有两个：
+
+- Server URL：`https://mcp.yehangshe.com/mcp`（POST；无 SSE、无会话）
+- Header：`Authorization: Bearer sk_live_xxxxx`
+
+具体配置位置以你所用客户端的 MCP 文档为准。
+
+## 验证
+
+接入后让 agent 调用一次 `api_health` 或 `discover_datasets`：能返回健康状态 / 配额信息即接通。若工具调用返回 401/402，检查 Key 是否有效、订阅是否在期（见[鉴权](/api/authentication)）。
+
+<Warning>
+MCP 配置文件里含有你的 API Key：**不要**把它提交进代码仓库。项目级配置请加入 `.gitignore`，或改用客户端支持的环境变量注入。
+</Warning>

@@ -1,0 +1,57 @@
+---
+title: options — 期权结构
+description: 期权链快照、OI 与成交量分布、max pain、单合约行情与希腊值
+---
+
+期权链的结构面数据：从「这只标的的期权盘口长什么样」（链快照、ATM 链）到「筹码堆在哪里」（OI/成交量按行权价与到期分布、max pain），再到单合约级别的行情序列与希腊值。全域按标的/合约 on-demand 查询。
+
+## 端点
+
+**链与结构（按标的）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `options.chain_snapshot` | `/v1/options/chain-snapshot/{ticker}` | 单到期日全链快照：各合约的报价、成交、OI 与希腊值。**必填 `expiration`**（`YYYY-MM-DD`，不支持一次取全部到期） |
+| `options.atm_chains` | `/v1/options/atm-chains/{ticker}` | ATM 附近的链切片 |
+| `options.chain_history` | `/v1/options/chain-history/{ticker}` | 链快照的历史回溯。**必填 `expiration` / `right`（C 或 P）/ `from` / `to` / `interval`** |
+| `options.expiry_breakdown` | `/v1/options/expiry-breakdown/{ticker}` | 按到期日分解的结构概览 |
+| `options.oi_change` | `/v1/options/oi-change/{ticker}` | 未平仓合约（OI）变动 |
+| `options.oi_per_expiry` | `/v1/options/oi-per-expiry/{ticker}` | OI 按到期日分布 |
+| `options.oi_per_strike` | `/v1/options/oi-per-strike/{ticker}` | OI 按行权价分布 |
+| `options.options_volume` | `/v1/options/options-volume/{ticker}` | 期权成交量概览 |
+| `options.volume_oi_per_expiry` | `/v1/options/volume-oi-per-expiry/{ticker}` | 成交量与 OI 按到期日对照 |
+| `options.price_levels` | `/v1/options/price-levels/{ticker}` | 期权成交的价格档位分布 |
+| `options.max_pain` | `/v1/options/max-pain/{ticker}` | 各到期日的 max pain 价位 |
+
+**单合约（按 OSI 合约代码）**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `options.contract_daily` | `/v1/options/contract-daily/{contract}` | 合约日级行情序列。**必填 `from` / `to`** |
+| `options.contract_intraday` | `/v1/options/contract-intraday/{contract}` | 合约日内行情 |
+| `options.contract_greeks_series` | `/v1/options/contract-greeks-series/{contract}` | 合约希腊值时间序列。**必填 `from` / `to` / `interval`** |
+| `options.contract_volume_profile` | `/v1/options/contract-volume-profile/{contract}` | 合约成交量分布 |
+
+**全市场**
+
+| command | 路径 | 内容 |
+|---|---|---|
+| `options.optionable_tickers` | `/v1/options/optionable-tickers` | 可交易期权的标的清单 |
+
+## 示例
+
+```bash
+# SPY 的 OI 按行权价分布
+curl -s https://api.yehangshe.com/v1/options/oi-per-strike/SPY \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+
+# 指定到期日的全链快照（expiration 必填；首次请求可能 202，几秒后重试即命中）
+curl -s "https://api.yehangshe.com/v1/options/chain-snapshot/SPY?expiration=2026-08-07" \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- **OI 是滞后指标**：未平仓合约数按行业惯例为上一交易日结算后的口径，日内不实时变化；「今天的 OI 变动」要到次日才能完整体现。
+- 单合约端点使用 OSI 代码（`标的 + 到期YYMMDD + C/P + 行权价×1000 补零到 8 位`），写错格式返回 `400 CONTRACT_SYMBOL_INVALID`。
+- 结构分布类端点（OI/volume 分布、max pain）适合做每日结构分析；需要当日盘中动态请结合 [derived 域](/api/dealer-gex)的实时快照。

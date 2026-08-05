@@ -1,0 +1,41 @@
+---
+title: MCP 概览
+description: 让 Claude、Cursor 等 AI 工具直接使用 Nightwatch 数据
+---
+
+## 是什么
+
+Nightwatch 提供 hosted [MCP](https://modelcontextprotocol.io)（Model Context Protocol）服务：把它加进你的 AI 工具后，agent 就能自己检索数据目录、调用数据端点——问一句「SPY 现在的 dealer gamma 结构怎么样」，agent 会自己取数并解读。
+
+- **Endpoint**：`https://mcp.yehangshe.com/mcp`（Streamable HTTP）
+- **鉴权**：与 REST 同一个 API Key，在客户端配置里作为 `Authorization: Bearer` header 传入
+- **配额**：与 REST 共享同一份月配额与限流（按账户计，见[配额与限流](/api/quota-and-rate-limits)）
+
+## 工具面：直达 + 检索执行
+
+MCP 端暴露 8 个工具，分两层：
+
+**直达工具（6 个）**——高频数据集一步到位：
+
+| 工具 | 作用 |
+|---|---|
+| `discover_datasets` | 当前 Key 的配额、scope 与能力目录自检 |
+| `dealer_gex_snapshot` | 0DTE Dealer GEX 最新快照 |
+| `dealer_gex_history` | Dealer GEX 历史序列（分页） |
+| `dealer_heatmap_snapshot` | Dealer Heatmap 快照（支持 `format=summary`） |
+| `standard_gex_history` | Standard GEX 历史 |
+| `api_health` | 服务健康检查 |
+
+**检索执行工具（2 个）**——覆盖其余全部数据目录：
+
+| 工具 | 作用 |
+|---|---|
+| `search_datasets` | 用自然语言/关键词搜索数据目录，返回匹配的 command、参数与响应结构 |
+| `dataset_query` | 按 command id + 参数执行任意目录数据集（只读） |
+
+这个「先搜再查」设计是刻意的：完整目录有近百个数据集，全部注册为独立工具会占满 agent 的上下文。检索执行模式让 agent 按需发现、按需调用，上下文开销恒定。
+
+## 下一步
+
+- [接入配置](/mcp/setup)——两分钟把 MCP 加进你的客户端
+- [使用模式](/mcp/patterns)——让 agent 用得又快又省的实践

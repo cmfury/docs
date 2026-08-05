@@ -1,0 +1,30 @@
+---
+title: shorts — 做空数据
+description: Short interest、FTD、做空量与比率、做空筛选器
+---
+
+做空维度的全套数据：short interest 与流通盘占比、交收失败（FTD）、日度做空量与比率、按交易所的做空量分布，以及全市场做空筛选榜。
+
+## 端点
+
+| command | 路径 | coverage | 内容 |
+|---|---|---|---|
+| `shorts.data` | `/v1/shorts/data/{ticker}` | on-demand | 做空数据综合视图 |
+| `shorts.interest_float` | `/v1/shorts/interest-float/{ticker}` | on-demand | Short interest 与流通盘占比 |
+| `shorts.ftds` | `/v1/shorts/ftds/{ticker}` | on-demand | 交收失败（fails-to-deliver）记录 |
+| `shorts.volume_and_ratio` | `/v1/shorts/volume-and-ratio/{ticker}` | on-demand | 日度做空量与做空比率 |
+| `shorts.volumes_by_exchange` | `/v1/shorts/volumes-by-exchange/{ticker}` | on-demand | 做空量按交易所分布 |
+| `shorts.short_screener` | `/v1/shorts/short-screener` | market-wide | 全市场做空指标筛选榜 |
+
+## 示例
+
+```bash
+curl -s https://api.yehangshe.com/v1/shorts/interest-float/GME \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+## 注意点
+
+- **三类数据三种节奏**：short interest 按结算周期约每半月官方发布一次；FTD 数据的官方发布同样滞后数周；日度做空量则每个交易日更新。本域属慢披露源，不标注 stale（见[数据新鲜度](/api/data-freshness)），按各自节奏理解内容时间。
+- **做空量 ≠ 做空情绪的直接读数**：日度 short volume 包含大量做市商的对冲性卖空，高比率不必然代表方向性看空；与 short interest（真实存量头寸）合看更可靠。
+- FTD 与逼空叙事相关性高，但数据滞后决定了它更适合结构分析而非实时信号。

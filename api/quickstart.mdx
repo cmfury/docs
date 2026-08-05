@@ -1,0 +1,76 @@
+---
+title: 快速开始
+description: 五分钟：生成 API Key，跑通第一个请求
+---
+
+<Info>前提：有效的 Nightwatch 订阅。Data API 包含于订阅，无需额外购买。</Info>
+
+## 1. 生成 API Key
+
+1. 登录后进入[账户页](https://yehangshe.com/app/account)，找到「API 访问」分区。
+2. 点击生成 Key，填一个 label（必填，不超过 64 字符，例如 `my-bot`）。
+3. **Key 明文只在生成时显示一次**，立即复制保存。之后列表里只能看到 label 与创建时间，无法再查看明文；丢失只能撤销后重新生成。
+
+每个账户最多同时持有 5 个 active Key；到达上限后需先撤销一个再生成。
+
+## 2. 第一个请求：`/v1/discover`
+
+用你的 Key 调用自描述端点，确认鉴权可用并查看当前配额与能力目录：
+
+```bash
+curl -s https://api.yehangshe.com/v1/discover \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+返回（节选）：
+
+```json
+{
+  "data": {
+    "api_version": "v1",
+    "quota": {
+      "monthly_limit": 100000,
+      "monthly_remaining": 99998,
+      "monthly_reset_at": "2026-09-01T00:00:00-04:00",
+      "rpm_limit": 60,
+      "in_flight_max": 5
+    },
+    "capabilities": ["..."],
+    "openapi_url": "https://api.yehangshe.com/v1/openapi.json"
+  },
+  "_meta": { "request_id": "req_..." }
+}
+```
+
+`discover` 不消耗月配额，可以放心用于会话开头的自检。
+
+## 3. 读懂响应信封
+
+所有端点的成功响应都是同一个形状：业务数据在 `data`，请求元信息（`request_id`、数据新鲜度、分页游标等）在 `_meta`。错误响应则只有 `error` 对象，包含 `code`、`message`、`hint` 与文档链接。详见[通用约定](/api/conventions)。
+
+## 4. 调一个数据端点
+
+取最新披露的国会议员交易（全市场端点，无参数）：
+
+```bash
+curl -s https://api.yehangshe.com/v1/congress/recent-trades \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+或者取一个标的的 0DTE Dealer GEX 快照：
+
+```bash
+curl -s https://api.yehangshe.com/v1/derived/dealer-gex/SPY/snapshot \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+<Note>
+部分按标的查询的端点在**首次**请求某个冷门标的时会返回 `202`——这不是错误，表示数据正在物化，按响应里的 `retry_after_seconds` 稍后重试即可（通常几秒内就绪）。机制详见[数据新鲜度](/api/data-freshness)。
+</Note>
+
+## 下一步
+
+- 浏览[数据目录](/api/catalog)，看各领域提供什么
+- 在顶部「API Reference」标签页查看每个端点的参数与响应结构，或直接消费 [OpenAPI spec](https://api.yehangshe.com/v1/openapi.json)
+- 用 AI 工具？两分钟接好 [MCP](/mcp/setup)
+- 写自动化程序前，先读[配额与限流](/api/quota-and-rate-limits)与[错误处理](/errors)

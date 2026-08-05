@@ -1,0 +1,41 @@
+---
+title: Data API 介绍
+description: Nightwatch 数据的程序化接口——REST 与 MCP 双通道，包含于订阅
+---
+
+## 这是什么
+
+Data API 是 Nightwatch 面向付费会员的程序化接口。你在产品里看到的数据——Dealer GEX、Heatmap，以及覆盖期权结构、个股行情、波动率、国会与内部人交易、机构持仓、做空、暗池等十余个领域的市场数据——都可以通过 API 以机器可读的方式获取，用于自己的脚本、看板、Discord bot 或 AI agent。
+
+Data API **包含于订阅**，不需要单独购买：有效订阅期内，在[账户页](https://yehangshe.com/app/account)自助生成 API Key 即可开始调用。
+
+## 两个通道
+
+| 通道 | 适合谁 | 入口 |
+|---|---|---|
+| **REST API** | 脚本、程序、表格、任何语言 | `https://api.yehangshe.com/v1/*`，Bearer Key 鉴权 |
+| **MCP** | Claude、Cursor 等 AI 工具 | `https://mcp.yehangshe.com/mcp`，同一个 API Key |
+
+两个通道共享同一套目录、同一套配额。MCP 是 REST 之上的薄层——AI 工具通过它检索和调用与 REST 相同的数据集。
+
+## 能拿到什么
+
+- **自研衍生数据集（derived）**：0DTE Dealer GEX 快照与历史、Dealer Heatmap 快照与单元格历史、Standard GEX 历史——与产品内图表同源。
+- **市场数据目录**：`options`（期权结构）、`stocks`（个股）、`volatility`（波动率）、`congress`（国会交易披露）、`fundamentals`（财报与基本面）、`market`（市场面）、`macro`（宏观与汇率）、`insider`（内部人交易）、`institutions`（机构持仓）、`shorts`（做空数据）、`darkpool`（暗池）。
+
+完整目录以 `GET /v1/discover` 的实时返回为准——它列出你当前 Key 可用的全部能力，是唯一权威的目录来源。各领域的导读见「数据目录」章节。
+
+## 给 AI agent 的入口
+
+如果你在为 AI 工具接入数据，这些机器可读入口开箱即用：
+
+- **OpenAPI spec**：`https://api.yehangshe.com/v1/openapi.json`（无需鉴权）
+- **MCP server**：`https://mcp.yehangshe.com/mcp`（配置方法见 [MCP 接入](/mcp/setup)）
+- **本文档站**：任意页面 URL 加 `.md` 后缀可获取原文 Markdown；站点根路径提供 `/llms.txt` 索引
+
+## 阅读路径
+
+1. [快速开始](/api/quickstart)——五分钟跑通第一个请求
+2. [鉴权与 API Key](/api/authentication)——Key 管理与安全
+3. [配额与限流](/api/quota-and-rate-limits)、[数据新鲜度](/api/data-freshness)、[错误处理](/errors)——理解这个 API 的行为方式
+4. [数据目录](/api/catalog)——各领域有什么、怎么用
