@@ -53,6 +53,8 @@ description: 数据准备、旧值兜底、404 与 503 的分工——Data API �
 
 `503` 的错误体携带 `recoverable: true` 与 `retry_after_seconds`，适合程序自动处理。
 
+Dealer GEX 与 Dealer Heatmap snapshot 只接受当前应有的固定五分钟采样点：如果该段的固定末分钟尚未归档，会返回 `READ_MODEL_UNAVAILABLE`，不会用上一段或段内更早一分钟代替。Dealer history 中的同类空洞则如实缺行，不会插值或补零。
+
 <Warning>
 一个已知的边界情况：对**确定不可能存在**的数据组合（例如查询一个已过期日期的快照、对不适用的标的类型查基本面），当前也可能返回带重试提示的 `503`。如果同一请求重试两三轮仍无进展，应当放弃并检查请求本身是否有意义，而不是无限重试。
 </Warning>

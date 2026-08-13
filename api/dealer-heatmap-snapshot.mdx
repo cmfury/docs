@@ -1,91 +1,116 @@
 ---
 title: Dealer Heatmap API
-description: 通过 Data API 读取多到期 Dealer Heatmap 网格快照与单 cell 分钟历史
+description: 读取 Dealer Heatmap 的 5 分钟固定采样 Top 节点快照与历史
 ---
 
 ## 概览
 
-Dealer Heatmap 数据集提供 90 天多到期 Dealer GEX 网格的最新快照与单 cell 的分钟级历史,与 [Heatmap 面板](/heatmap/overview)同源同口径——API 返回的就是面板正在展示的数据。
+Dealer Heatmap Data API 提供产品 Heatmap 数据的公共窄投影：保留采样时真实存在的到期日，并为每个到期日最多返回十个最强正值节点和十个最强负值节点。它不是完整行权价网格，也不能用于复刻产品内整张 Heatmap。
+
+<Warning>本数据集目前处于 Beta 契约收敛阶段；破坏性校正会在 [changelog](/api/changelog) 明确登记。</Warning>
 
 | 端点 | 用途 | 配额消耗 |
 |---|---|---|
-| `GET /v1/derived/heatmap/{ticker}/snapshot` | 最新网格(整表) | 1 unit / 次 |
-| `GET /v1/derived/heatmap/{ticker}/cell-history` | 单个 cell 的 1 分钟历史序列(分页) | 1 unit / 页 |
+| `GET /v1/derived/heatmap/{ticker}/snapshot` | 最新一个已完成的 5 分钟 Top 节点快照 | 1 unit / 次 |
+| `GET /v1/derived/heatmap/{ticker}/history` | 指定到期日最近三个 NYSE 交易时段的 Top 节点历史 | 1 unit / 页 |
 
-> API Key 在[账户页](https://yehangshe.com/app/account)自助生成(见[快速开始](/api/quickstart));鉴权方式为 `Authorization: Bearer sk_live_...`,配额包含于订阅。
+> API Key 在[账户页](https://yehangshe.com/app/account)自助生成（见[快速开始](/api/quickstart)）；鉴权方式为 `Authorization: Bearer sk_live_...`，配额包含于订阅。
 
-## 响应字段
+## 采样与排名语义
+
+API 每五分钟公开一个固定采样点。例如，`09:30-09:35 ET` 这一段固定读取 `09:34` 的分钟终值，并把 `generated_at` 或 `minute_at` 标记为该段起点 `09:30`。
+
+- 这不是五分钟平均、合计或插值。
+- 固定末分钟缺失时，该段直接缺失，不会回退到 `09:33` 等更早分钟。
+- 每个到期日独立排名：正值从大到小取前十，负值从小到大取前十；相同数值按行权价升序。
+- `net_dealer_gex_usd = 0` 的节点不进入 `cells`。
+
+## Snapshot
 
 ```json
 {
   "data": {
     "ticker": "SPY",
-    "generated_at": "2026-07-08T14:30:15-04:00",
-    "session_date_et": "2026-07-08",
-    "market_status": "open",
-    "state": "fresh",
-    "spot_usd": 598.42,
-    "expirations": ["2026-07-10", "2026-07-17"],
-    "strikes_usd": [590.0, 595.0, 600.0],
+    "generated_at": "2026-08-12T13:30:00Z",
+    "session_date_et": "2026-08-12",
+    "spot_usd": 642.18,
+    "expirations": ["2026-08-12", "2026-08-14", "2026-08-21"],
     "cells": [
       {
-        "strike_usd": 600.0,
-        "expiration": "2026-07-10",
-        "net_dealer_gex_usd": -1234567.0,
-        "call_gex_usd": 2345678.0,
-        "put_gex_usd": -3580245.0
-      }
-    ],
-    "row_stacks": [
+        "expiration": "2026-08-14",
+        "strike_usd": 645.0,
+        "net_dealer_gex_usd": 2345678.0
+      },
       {
-        "strike_usd": 600.0,
-        "row_net_wall_gex_usd": -2345678.0,
-        "row_abs_wall_gex_usd": 4567890.0,
-        "rank": 1
+        "expiration": "2026-08-14",
+        "strike_usd": 640.0,
+        "net_dealer_gex_usd": -1987654.0
       }
-    ],
-    "scale": {
-      "cap_abs_usd": 5678901.0,
-      "row_cap_abs_usd": 6789012.0,
-      "color_min_value_usd": -4567890.0,
-      "color_max_value_usd": 3456789.0
-    }
+    ]
   }
 }
 ```
 
-### 读法要点
+- `expirations` 列出该固定采样分钟真实存在的全部归档到期日。
+- 某个到期日即使全部节点为零，仍可出现在 `expirations` 中，但不会产生 `cells`。
+- `cells` 只包含 `expiration`、`strike_usd` 和 `net_dealer_gex_usd`。
+- API 不公开完整 strike 轴、逐节点 call/put 分解、跨到期行聚合、颜色比例尺或内部状态诊断。
+- 不接受 `format` 参数；未知参数会返回 `400 VALIDATION_ERROR`。
 
-- **`cells`**:`行权价 × 到期日` 的净 dealer gamma 敞口。正值倾向钉住/支撑,负值倾向助推/加速,与 [Heatmap 面板](/heatmap/reading-the-matrix)配色语义一致。
-- **`row_stacks`**:按行权价跨到期聚合的"墙"强度排名,`rank=1` 为当前最强行。
-- **`scale`**:面板着色所用的比例参数,供你在自己的界面里复刻同款颜色映射。
-- **到期覆盖**:网格覆盖未来 90 天的挂牌到期列(含当日,如适用)。当日 0DTE 的专用快照与历史序列见 [Dealer GEX API](/api/dealer-gex)。
-- **cells 缺席语义**:属于真实挂牌面的 `行权价 × 到期` 组合即使敞口为 0 也会以 `net_dealer_gex_usd: 0` 返回;不在挂牌面或尚未水合的组合缺席,客户端按 0 处理即可。
-- `market_status`(`open` / `closed`)表示交易时段,与 `state`(数据质量:`fresh` / `stale` / `waiting` / `degraded` / `disabled`)语义分离。
+正负值的产品解读见 [Heatmap 读图指南](/heatmap/reading-the-matrix)。缺席节点不能被解释为精确的 0。
 
-## Cell 历史(cell-history)
+## History
 
-单个 `行权价 × 到期日` cell 的 1 分钟净敞口序列,用于回看一个价位在盘中的演化。**一次查询锚定一个 cell**:`expiration` 与 `strike` 为必填参数。
+History 一次查询一个到期日，返回该到期日在各固定采样点上的 signed Top 节点。
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `expiration` | `YYYY-MM-DD` | 必填,到期日(ET 日历日) |
-| `strike` | 数字 | 必填,行权价(美元,如 `600` 或 `600.5`) |
-| `from` / `to` | ISO 8601 | 可选,时间窗口 |
-| `limit` | 整数 | 默认 100,**上限 500**(超出按 500 钳制);一页恰好覆盖一个完整常规时段(390 分钟) |
+| `expiration` | `YYYY-MM-DD` | 必填，到期日（ET 日历日） |
+| `from` / `to` | ISO 8601 | 可选；省略 `from` 时读取完整的三个 NYSE 交易时段窗口 |
+| `limit` | 整数 | 默认 24，上限 24 |
 | `cursor` | 不透明串 | 上一页 `_meta.next_cursor` 原样回传 |
 
+旧的 `strike` 参数和 `/cell-history` 路径已不再属于公共 Data API 契约。
+
 ```bash
-curl -s "https://api.yehangshe.com/v1/derived/heatmap/SPY/cell-history?expiration=2026-09-18&strike=600&limit=390" \
+curl -s "https://api.yehangshe.com/v1/derived/heatmap/SPY/history?expiration=2026-08-21&limit=24" \
   -H "Authorization: Bearer sk_live_xxxxxxxx"
 ```
 
-每行三个字段:`minute_at`(分钟时间戳)、`net_dealer_gex_usd`、`spot_usd`(该分钟的现货参照),按时间**从新到旧**排列;查询窗口为滚动 **90 天**。
+响应按时间从新到旧排列：
 
-<Note>归档是尽力而为语义:没有归档值的分钟直接**缺行**,不会插值、不会补零。消费端把缺行当作"该分钟无归档"处理,不要当作 0。</Note>
+```json
+{
+  "data": [
+    {
+      "minute_at": "2026-08-12T15:55:00Z",
+      "expiration": "2026-08-21",
+      "spot_usd": 643.02,
+      "cells": [
+        {
+          "strike_usd": 645.0,
+          "net_dealer_gex_usd": 2123456.0
+        },
+        {
+          "strike_usd": 640.0,
+          "net_dealer_gex_usd": -1765432.0
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "next_cursor": null
+  }
+}
+```
 
-## 新鲜度与频率
+- 窗口固定为最近三个 NYSE 交易时段的 RTH；周末、节假日、夏令时与半日市按 NYSE 日历处理。
+- `from` 按采样段起点包含，`to` 按采样段起点不包含。早于最老可用交易时段返回 `404 RANGE_TOO_DEEP`。
+- 只有该到期日在固定末分钟真实存在时，该段才参与分页；到期日存在但所有值为零时返回空 `cells`。
+- 归档为空洞时不生成占位行，不插值、不补零，也不回退到更早分钟。空结果是 `200` 加空数组。
 
-数据按秒级节奏更新,响应 `_meta.data_freshness_seconds` 为权威新鲜度信号。轮询建议不高于 1 次/秒——更高频率不会拿到更新的数据,只会消耗配额与触发限流。
+## 新鲜度与调用频率
 
-Heatmap 服务处于维护 / 恢复窗口时,两个端点返回 `503 SERVICE_DISABLED`(语义与处理方式见[错误处理](/errors#SERVICE_DISABLED))——这类窗口通常是分钟级,降级处理后低频重试即可,**不要**按秒级自动重试循环;快照与历史的更多行为约定见[数据新鲜度](/api/data-freshness)与[通用约定](/api/conventions)。
+内容时间以 `generated_at`、`minute_at` 和 `_meta.data_freshness_seconds` 为准。由于公共投影每五分钟才形成一个新采样点，通常没有必要以秒级频率轮询；在需要最新点时，每个采样段完成后请求一次即可。
+
+当前应有的 snapshot 采样点暂缺时返回 `503 READ_MODEL_UNAVAILABLE`。Heatmap 能力未开放或处于维护 / 恢复窗口时返回 `503 SERVICE_DISABLED`。两者的重试方式不同，见[错误处理](/errors)与[数据新鲜度](/api/data-freshness)。

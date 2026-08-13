@@ -6,9 +6,22 @@ description: Data API 的变更记录与兼容性政策
 ## 兼容性政策
 
 - **非破坏性变更随时发生**：新增端点、新增响应字段、新增可选参数。你的解析代码应忽略未知字段。
-- **破坏性变更提前 90 天预告**：删除/重命名字段或端点、改变既有字段语义。预告在本页发布并注明生效日期。
+- **正式开放（GA）的破坏性变更提前 90 天预告**：删除/重命名字段或端点、改变既有字段语义。预告在本页发布并注明生效日期。
+- **Preview / Beta 契约校正**：尚处正式契约冻结前的端点可在本页公告后直接校正；公告必须明确旧契约、替代契约与生效条件。
 - 运行时的权威能力目录始终是 `GET /v1/discover`（见[目录总览](/api/catalog)）。
 
 ## 记录
 
-正式开放后的变更将按时间倒序在此维护。
+### 2026-08-13 — Dealer 公共投影收窄（Beta 契约校正）
+
+Dealer GEX 与 Dealer Heatmap 的公共契约调整为固定五分钟采样与 Top 节点窄投影；浏览器产品页面不受影响。
+
+**生效条件**：对应 Dealer 公共投影版本正式发布。发布前继续以当前运行时 OpenAPI 与 `GET /v1/discover` 为准；两者出现下述新契约即表示变更已经生效。
+
+- Dealer GEX snapshot/history：完整分钟级行权价分布改为最多五个产品可见节点；删除逐节点 call/put 分解；history 改为最近三个 NYSE 交易时段，默认/最大 `limit=78`。
+- Dealer Heatmap snapshot：完整网格改为每个到期日正 Top 10 + 负 Top 10；删除完整 strike 轴、call/put 分解、行聚合、比例尺、状态诊断与 `format` 参数。
+- Dealer Heatmap history：`/v1/derived/heatmap/{ticker}/cell-history` 替换为 `/v1/derived/heatmap/{ticker}/history`；MCP command 从 `derived.dealer_heatmap_cell_history` 替换为 `derived.dealer_heatmap_history`；查询从 `expiration + strike` 改为只需 `expiration`，默认/最大 `limit=24`。
+- 两类数据都按已完成五分钟段固定读取末一分钟；末分钟缺失时不回退、不插值、不补零。
+- Hosted MCP 的 `dealer_gex_snapshot`、`dealer_gex_history` 与 `dealer_heatmap_snapshot` 同步采用上述窄投影；Heatmap 历史通过 `derived.dealer_heatmap_history` command 查询。
+
+旧字段、旧 Heatmap history 路径和旧 command 不保留兼容层。迁移示例见 [Dealer GEX API](/api/dealer-gex) 与 [Dealer Heatmap API](/api/dealer-heatmap-snapshot)。
