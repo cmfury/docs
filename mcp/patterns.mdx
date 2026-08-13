@@ -12,7 +12,7 @@ description: 让 agent 用得又快又省的实践与常见坑
 
 **不要让 agent 凭记忆猜 command id**：猜错时错误信息会提示回到 `search_datasets`，但直接先搜索省一轮往返。
 
-Dealer 数据不需要这个流程——`dealer_gex_snapshot` 等直达工具一步到位。
+Dealer GEX snapshot/history 与 Heatmap snapshot 可用直达工具一步到位；Dealer Heatmap history 仍通过下面的检索执行流程调用。
 
 ## 处理 202（数据准备中）
 
@@ -20,9 +20,10 @@ Dealer 数据不需要这个流程——`dealer_gex_snapshot` 等直达工具一
 
 ## 控制响应体积
 
-- `dealer_heatmap_snapshot` 的完整网格很大，日常解读**优先 `format=summary`**；只有需要逐单元格数值时才用 `full`。
+- `dealer_gex_snapshot` 固定最多返回五个产品可见节点；`dealer_heatmap_snapshot` 固定为每个到期日正 Top 10 + 负 Top 10，不接受 `format` 参数，也不返回完整网格。
+- 查询 Heatmap 历史时，通过 `dataset_query` 调用 `derived.dealer_heatmap_history`，并提供一个 `expiration`；每页最多 24 个五分钟采样点。
 - `dataset_query` 对超大结果会返回可自纠的错误文案（如何收窄查询）；按提示降低 `limit`、缩短时间范围即可。
-- 历史类查询让 agent 明确给出时间范围，避免默认拉全量分页。
+- Dealer GEX / Heatmap 历史省略 `from` 时只覆盖最近三个 NYSE 交易时段；其它历史类查询仍应让 agent 明确给出时间范围。
 
 ## 配额意识
 

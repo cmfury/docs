@@ -20,9 +20,9 @@ MCP 端暴露 8 个工具，分两层：
 | 工具 | 作用 |
 |---|---|
 | `discover_datasets` | 当前 Key 的配额、scope 与能力目录自检 |
-| `dealer_gex_snapshot` | 0DTE Dealer GEX 最新快照 |
-| `dealer_gex_history` | Dealer GEX 历史序列（分页） |
-| `dealer_heatmap_snapshot` | Dealer Heatmap 快照（支持 `format=summary`） |
+| `dealer_gex_snapshot` | 0DTE Dealer GEX 最新已完成 5 分钟 Top 5 快照 |
+| `dealer_gex_history` | 最近三个 NYSE 交易时段的 Dealer GEX 5 分钟 Top 5 历史 |
+| `dealer_heatmap_snapshot` | Dealer Heatmap 每到期日正负 Top 10 快照 |
 | `standard_gex_history` | Standard GEX 历史 |
 | `api_health` | 服务健康检查 |
 
@@ -34,6 +34,8 @@ MCP 端暴露 8 个工具，分两层：
 | `dataset_query` | 按 command id + 参数执行任意目录数据集（只读） |
 
 这个「先搜再查」设计是刻意的：完整目录有近百个数据集，全部注册为独立工具会占满 agent 的上下文。检索执行模式让 agent 按需发现、按需调用，上下文开销恒定。
+
+Dealer Heatmap 历史不新增直达工具：先用 `search_datasets` 找到 `derived.dealer_heatmap_history`，再通过 `dataset_query` 按 `ticker + expiration` 查询。
 
 ## 下一步
 

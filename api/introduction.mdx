@@ -20,7 +20,7 @@ Data API **包含于订阅**，不需要单独购买：有效订阅期内，在[
 
 ## 能拿到什么
 
-- **自研衍生数据集（derived）**：0DTE Dealer GEX 快照与历史、Dealer Heatmap 快照与单元格历史、Standard GEX 历史——与产品内图表同源。
+- **自研衍生数据集（derived）**：0DTE Dealer GEX Top 节点快照与历史、Dealer Heatmap 按到期日 Top 节点快照与历史、Standard GEX 历史。Dealer 数据来自与产品相同的数据域，但对外只提供固定的公共窄投影，不等同于完整产品网格。
 - **市场数据目录**：`options`（期权结构）、`stocks`（个股）、`volatility`（波动率）、`congress`（国会交易披露）、`fundamentals`（财报与基本面）、`market`（市场面）、`macro`（宏观与汇率）、`insider`（内部人交易）、`institutions`（机构持仓）、`shorts`（做空数据）、`darkpool`（暗池）。
 
 完整目录以 `GET /v1/discover` 的实时返回为准——它列出你当前 Key 可用的全部能力，是唯一权威的目录来源。各领域的导读见「数据目录」章节。

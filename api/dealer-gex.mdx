@@ -1,18 +1,28 @@
 ---
 title: Dealer GEX API
-description: 通过 Data API 读取 0DTE Dealer GEX 快照与历史序列
+description: 读取 0DTE Dealer GEX 的 5 分钟固定采样快照与历史
 ---
 
 ## 概览
 
-Dealer GEX 数据集提供当日(0DTE)做市商 gamma 敞口结构的机器可读投影,与产品内 Dealer 视角同源。两个端点:
+Dealer GEX 数据集提供当日（0DTE）做市商 gamma 敞口结构的公共窄投影。每个采样点最多返回五个产品可见的关键节点，而不是完整行权价分布。
+
+<Warning>本数据集目前处于 Beta 契约收敛阶段；破坏性校正会在 [changelog](/api/changelog) 明确登记。</Warning>
 
 | 端点 | 用途 | 配额消耗 |
 |---|---|---|
-| `GET /v1/derived/dealer-gex/{ticker}/snapshot` | 最新一轮快照 | 1 unit / 次 |
-| `GET /v1/derived/dealer-gex/{ticker}/history` | 1 分钟粒度历史序列(分页) | 1 unit / 页 |
+| `GET /v1/derived/dealer-gex/{ticker}/snapshot` | 最新一个已完成的 5 分钟采样点 | 1 unit / 次 |
+| `GET /v1/derived/dealer-gex/{ticker}/history` | 最近三个 NYSE 交易时段的 5 分钟采样历史 | 1 unit / 页 |
 
-> API Key 在[账户页](https://yehangshe.com/app/account)自助生成(见[快速开始](/api/quickstart));鉴权方式为 `Authorization: Bearer sk_live_...`,配额包含于订阅。
+> API Key 在[账户页](https://yehangshe.com/app/account)自助生成（见[快速开始](/api/quickstart)）；鉴权方式为 `Authorization: Bearer sk_live_...`，配额包含于订阅。
+
+## 采样语义
+
+API 每五分钟公开一个固定采样点。例如，`09:30-09:35 ET` 这一段只读取 `09:34` 这一分钟内最后归档的版本，并把对外 `snapshot_at` 标记为该段起点 `09:30`。
+
+- 这不是五分钟平均值、合计值或插值结果。
+- 如果固定末分钟缺失，该采样点就缺失；API 不会回退到 `09:33` 等更早分钟。
+- snapshot 只接受当前应有的最新已完成采样点，不会拿上一段或上一交易日代替。
 
 ## Snapshot 响应字段
 
@@ -20,49 +30,71 @@ Dealer GEX 数据集提供当日(0DTE)做市商 gamma 敞口结构的机器可�
 {
   "data": {
     "ticker": "SPY",
-    "snapshot_at": "2026-07-08T14:30:01-04:00",
-    "session_date_et": "2026-07-08",
+    "snapshot_at": "2026-08-12T13:30:00Z",
+    "session_date_et": "2026-08-12",
     "state": "fresh",
-    "spot_usd": 598.42,
+    "spot_usd": 642.18,
     "strikes": [
       {
-        "strike_usd": 600.0,
+        "strike_usd": 645.0,
         "net_gex_usd": -1234567.0,
-        "call_gex_usd": 2345678.0,
-        "put_gex_usd": -3580245.0,
-        "node_type": null
+        "node_type": "king",
+        "rank": 1,
+        "relative_strength": 0.91
       }
     ],
-    "summary": { "...": "结构摘要,字段见下文" }
+    "summary": {
+      "total_gex_usd": -5678901.0,
+      "king_strike_usd": 645.0,
+      "major_positive_strike_usd": 650.0,
+      "major_negative_strike_usd": 640.0,
+      "gamma_flip_usd": 643.5,
+      "call_wall_strike_usd": 655.0,
+      "put_wall_strike_usd": 635.0
+    }
   }
 }
 ```
 
-- `spot_usd`:该轮快照发布时刻的结构上下文价格样本;缺数据时为 `null`(不会伪装成 0)。
-- `net_gex_usd` 为正 = 做市商净多 gamma,该行权价倾向钉住/支撑;为负 = 净空 gamma,倾向助推/加速。与产品内 Dealer 视角的金/紫配色语义一致。
-- `summary` 为结构摘要:`total_gex_usd`、`king_strike_usd` / `king_value_usd`、`gatekeeper_strike_usd` / `gatekeeper_value_usd`、`gamma_flip_usd`、`call_wall_strike_usd` / `call_wall_value_usd`、`put_wall_strike_usd` / `put_wall_value_usd`、`major_positive_strike_usd` / `major_positive_value_usd`、`major_negative_strike_usd` / `major_negative_value_usd`、`positive_gex_count`、`negative_gex_count`。各节点概念的解读见[关键节点](/concepts/key-nodes)与[与传统 GEX 的区别](/concepts/dealer-vs-traditional-gex)。
+- `strikes` 最多五项，按 `rank` 从小到大排列。
+- `net_gex_usd` 为正表示做市商净多 gamma，为负表示净空 gamma。
+- `relative_strength` 是节点在当前公共投影中的相对强度。
+- `spot_usd` 是该采样点的结构上下文价格；缺失时为 `null`，不会伪装成 0。
+- API 不返回逐节点 call/put 分解，也不返回未进入产品可见排名的行权价。
+
+各节点概念的解读见[关键节点](/concepts/key-nodes)与[与传统 GEX 的区别](/concepts/dealer-vs-traditional-gex)。
 
 ### state 值集
 
 | state | 含义 |
 |---|---|
-| `fresh` | 实时聚合正常产出 |
+| `fresh` | 采样形成时数据正常 |
 | `waiting` | 该 ticker 尚未形成有效状态 |
-| `no-0dte` | 当日无 0DTE 合约链(正常空态:`strikes` 为空数组、`summary` 为零值/null) |
-| `degraded` | 恢复链路暂不可用 |
-| `stale` | 上一轮快照超过新鲜度阈值 |
+| `no-0dte` | 当日无 0DTE 合约链；`strikes` 为空数组，summary 为零值或 `null` |
+| `degraded` | 数据质量处于降级状态 |
+| `stale` | 采样形成时使用了超过新鲜度阈值的输入 |
 | `market-closed` | 美股已收盘 |
 
-响应 `_meta.data_freshness_seconds` 表示数据新鲜度,请优先据此判断可用性。
+`state` 描述采样形成时的状态；判断这行数据距离现在多久，仍应查看 `snapshot_at` 和响应 `_meta.data_freshness_seconds`。
 
 ## History 参数
 
 | 参数 | 类型 | 说明 |
 |---|---|---|
-| `from` / `to` | ISO 8601 | 缺省 `from = now - 1 day`;date-only 按 UTC 零点,带时间必须带时区 |
-| `limit` | 整数 | 默认 100,上限 1000 |
+| `from` / `to` | ISO 8601 | 可选；省略 `from` 时读取完整的三个 NYSE 交易时段窗口 |
+| `limit` | 整数 | 默认 78，上限 78 |
 | `cursor` | 不透明串 | 上一页 `_meta.next_cursor` 原样回传 |
 
-- 查询窗口为最近 **90 个 ET 自然日**(窗口下界按 ET 午夜计)。date-only 写法(`YYYY-MM-DD`)按 ET 日历日理解:写边界 ET 日会被钳制到窗口起点正常返回,写更早的日返回 `404 RANGE_TOO_DEEP`;显式带时区的时间戳按精确时刻严格比较,早于窗口下界即返回 `404 RANGE_TOO_DEEP`。
-- 每条 history item 的字段集与 snapshot 完全相同。
-- 未知参数、非法日期、非法 cursor 均返回 `400` 且**不消耗配额**;`401/402/403/429` 同为零消耗。
+- 窗口固定为最近三个 NYSE 交易时段的 RTH。开盘前取此前三个时段；当日第一个采样点完成后，窗口包含当日和此前两个时段。
+- 周末、节假日、夏令时与半日市均按 NYSE 日历处理，不按自然日近似。
+- `from` 按采样段起点包含，`to` 按采样段起点不包含。早于最老可用交易时段会返回 `404 RANGE_TOO_DEEP`。
+- 每条 history item 的字段集与 snapshot 完全相同，按时间从新到旧排列。
+- `no-0dte` 是不产生历史归档行的正常空态，因此对应时段可能没有 history item。
+- 未知参数、非法日期和非法 cursor 返回 `400`，且不消耗配额。
+
+```bash
+curl -s "https://api.yehangshe.com/v1/derived/dealer-gex/SPY/history?limit=78" \
+  -H "Authorization: Bearer sk_live_xxxxxxxx"
+```
+
+当前应有的 snapshot 采样点暂缺时，端点返回 `503 READ_MODEL_UNAVAILABLE`。按错误体的 `retry_after_seconds` 有界重试，不要用更早数据自行补点。
