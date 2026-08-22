@@ -1,0 +1,6 @@
+{
+  "error": "not_an_api_spec",
+  "message": "This path is a stale artifact from the Mintlify starter template and is not a Nightwatch API specification. The real OpenAPI 3.1 spec is served at https://api.yehangshe.com/v1/openapi.json",
+  "spec_url": "https://api.yehangshe.com/v1/openapi.json",
+  "docs_url": "https://docs.yehangshe.com/api/introduction"
+}
