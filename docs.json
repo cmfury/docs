@@ -177,6 +177,13 @@
       }
     ]
   },
+  "redirects": [
+    {
+      "source": "/api-reference/openapi.json",
+      "destination": "https://api.yehangshe.com/v1/openapi.json",
+      "permanent": true
+    }
+  ],
   "footer": {
     "socials": {
       "x": "https://x.com/FuryChristopher",
