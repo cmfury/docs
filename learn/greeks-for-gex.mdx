@@ -85,6 +85,10 @@ Vanna 衡量当隐含波动率（IV）变动时，Delta 如何变化。换个说
 Volatility 面板的 IV Rank 和 IV Term Structure 帮你判断当前处于哪种 IV 环境。IV Rank 低于 20 且稳定下降时，Vanna 的支撑效应最强；IV Rank 高于 80 且快速上升时，Vanna 可能让节点失效。把 GEX 热力图和 Volatility 面板一起看，才是完整的判断。
 </Tip>
 
+<Note>
+Heatmap 面板可以直接切换到 [VEX 视图](/heatmap/vex)，把每个「行权价 × 到期日」位置的 Vanna 敞口画在同一张矩阵上——这一段讲的机制，在那张图上能逐格看到。
+</Note>
+
 ### Vanna 的时间特性
 
 Vanna 对中长期合约（7-180 DTE）影响最大。原因很简单：远月合约的 Vega 大（对 IV 敏感），Delta 也处于中间值，两者相乘的交叉效应最显著。
