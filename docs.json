@@ -47,7 +47,8 @@
               "heatmap/reading-the-matrix",
               "heatmap/structure",
               "heatmap/multi-expiry",
-              "heatmap/dynamics"
+              "heatmap/dynamics",
+              "heatmap/vex"
             ]
           },
           {
@@ -55,6 +56,7 @@
             "pages": [
               "heatmap/patterns-stacked",
               "heatmap/patterns-clusters",
+              "heatmap/gex-vex-alignment",
               "heatmap/execution",
               "heatmap/workflow",
               "heatmap/misreadings"
