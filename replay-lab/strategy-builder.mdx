@@ -16,7 +16,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 
 <Steps>
   <Step title="拖时间滑块到目标入场时刻">
-    比如 12:00 ET。注意：入场价用的是这一时刻每条腿的 NBBO **mid 中点**，不是 bid 也不是 ask。实盘里你大概率拿不到 mid，所以 Replay Lab 算出来的 P&L 是**理论上限**。
+    比如 12:00 ET。注意：入场价用的是这一时刻每条腿的 NBBO **mid 中点**，不是 bid 也不是 ask。实盘里你大概率拿不到 mid，所以 Replay Lab 按中点算出的 P&L 是报价假设下的模拟值，不是实盘结果或严格的理论上限。
   </Step>
   <Step title="按 N 或点右栏 ＋ 新建策略">
     打开「新建策略」浮层。也可以在 K 线上**右键**任意一根 K 线，会自动用那根 K 线的时间作为入场时间。
@@ -98,7 +98,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：强烈看跌当日 + 愿意付 debit 赌方向。
     
-    **风险**：max loss = 付出的权利金；max profit = CENTER × 100（理论上 SPX 跌到 0）。
+    **风险**：每张 max loss = 支付的每股权利金 × 100；max profit = (CENTER - 支付的每股权利金) × 100（理论上 SPX 跌到 0，未计费用）。
     
     **breakeven**：CENTER - 入场价
   </Card>
@@ -172,9 +172,9 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     - 买 Put @ CENTER - WIDTH（保护下方）
     - 买 Call @ CENTER + WIDTH（保护上方）
     
-    **何时用**：判断 SPX 当日**钉死在 CENTER 附近** → credit 比铁鹰高（收双边 ATM 权利金），但 max profit 只有一个尖点。
+    **何时用**：假设到期价接近 CENTER 时观察其收益形状；max profit 只有一个尖点，实际 credit 须看报价，不能预设高于铁鹰。
     
-    **到期形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；任何偏离都立即开始亏损。
+    **到期形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；偏离后到期收益减少；越过盈亏平衡点才转为净亏损。
     
     **breakeven**：CENTER ± credit
   </Card>
@@ -188,10 +188,10 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
 |---|---|---|
 | 短 Put 位置 | CENTER - WIDTH（OTM） | CENTER（ATM） |
 | 短 Call 位置 | CENTER + WIDTH（OTM） | CENTER（ATM） |
-| credit | 较小（OTM 权利金低） | **较大**（ATM 权利金高） |
-| max profit | = credit | = credit（更大） |
+| credit | 取决于实际腿位与报价 | 取决于实际腿位与报价 |
+| max profit | = credit | = credit |
 | max profit 触发条件 | SPX 落在 [短 Put, 短 Call] 之间 = **平顶** | SPX 恰好落在 CENTER = **尖点** |
-| max loss | = WIDTH - credit | = WIDTH - credit（**更小**） |
+| max loss | = WIDTH - credit | = WIDTH - credit |
 | 适用判断 | "SPX 会震荡但不知道会落在哪个具体价位" | "SPX 会**钉死在 CENTER 附近**" |
 
 直觉对比（看到期结构图）：
@@ -207,14 +207,46 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     <Frame>
       <img src="/images/replay-lab/payoff-butterfly.png" alt="铁蝶到期结构：strikes 7420/7425/7425/7430，只有 7425 一个点是 max profit = +$370" />
     </Frame>
-    只有 CENTER 一个点能拿满 max profit。偏离 1 美元就开始亏。
+    只有 CENTER 一个点能拿满 max profit。偏离后到期收益减少，不等于立即出现净亏损。
   </Card>
 </CardGroup>
 
-**经验法则**：
-- 不确定方向 → **铁鹰**（容错区间宽）
-- 强烈认为会"钉点" → **铁蝶**（credit 高 + max loss 小）
-- 看 Standard GEX：**King Strike + 强 Call/Put Wall** 组合 → 倾向铁鹰（结构会把 SPX 框在两墙之间）；**单一极强 King Strike** → 倾向铁蝶（结构吸引 SPX 钉死该位置）
+**比较到期形状**：
+- 铁鹰的最大收益区间位于两条短腿之间；铁蝶的最大收益集中在共同短腿行权价。
+- 权利金与最大损失要根据实际腿位、报价和费用比较，不能固定断言铁蝶收入更高、损失更小。
+- Standard GEX 的 King 与 Call/Put Wall 可以作为观察位置，不能证明收盘会被框住或钉在 King，也不能单靠节点选择铁鹰或铁蝶
+
+## 策略通识与模板边界
+
+以下是策略结构教学，不能从 GEX 节点直接得出合约选择、账户盈亏或胜率。Replay Lab 的模板与回放能力独立于 APEX；未列在八个模板中的结构不能称为一键模板。
+
+### 买入 Call（Long Call）
+
+买入看涨期权，支付权利金。其他条件相同时受益于标的上涨，但涨幅、发生时间与 IV 都影响价值。到期最大损失为支付的权利金；到期盈亏平衡为行权价加每股权利金。Replay Lab 有 Long Call 单腿模板；APEX 可以解释结构，不能读取用户账户或代选实时合约。
+
+### 看涨价差（Bull Call Spread）
+
+通常指同到期买入较低行权价 Call、卖出较高行权价 Call 的牛市看涨价差，净支付权利金，收益和损失均有限。它与净收权利金的 Bull Put Spread 不同。Replay Lab 八个预设不含 Bull Call Spread，不能把已有 Bull Put 模板当成同一个策略；本段只解释通识。
+
+### 垂直价差（Vertical Spread）
+
+同一标的、同一到期日、同种期权类型，不同行权价的一买一卖。Call 或 Put、借记或贷记和腿位决定方向及到期风险，不能把所有垂直价差都称为看涨。Replay Lab 现有 Bull Put Spread 与 Bear Call Spread 两个垂直价差模板；具体腿位与权利金决定到期风险，节点间距本身不是合约盈亏。
+
+### 蝶式（Butterfly）
+
+蝶式通识通常指同到期、同种期权、三个等间隔行权价的 1:-2:1 组合；多头蝶式的到期收益集中在中间行权价附近。铁蝶（Iron Butterfly）使用 Put 和 Call 两种类型，不能与普通蝶式混为一谈。Replay Lab 有铁蝶模板，没有普通蝶式的一键模板；解释时先确认用户指哪一种，不能由 King 位置推断到期钉点。
+
+### 铁鹰（Iron Condor）
+
+本页模板把下方牛市 Put 价差与上方熊市 Call 价差组合成四腿、净收权利金的结构；买入的外侧翼限制到期风险。到期最大收益区间在两条短腿之间，具体盈亏取决于实际腿位、权利金与费用。它不意味着价格会留在区间，也不能从「震荡结构」名称直接推荐建仓。
+
+### 备兑看涨（Covered Call）
+
+持有标的并卖出对应数量的 Call，股票下跌风险仍在，上涨收益被短 Call 限制；收到权利金不是无风险收入。是否真正备兑取决于实际股票持仓和合约数量。Replay Lab 当前八个 SPX 期权模板不包含股票备兑组合，APEX 也不读取账户持仓来核验备兑状态。
+
+### 现金担保看跌（Cash Secured Put）
+
+卖出 Put 并预留履约所需现金，是资金安排与合约风险的组合描述；仍承担标的大幅下跌风险，收到权利金不代表保本。股票期权的实物交割与 SPX 的现金结算不同。Replay Lab 的 Short Put 模板不核验账户现金担保，APEX 也不读取资金余额，不能把它们称为已核验的现金担保策略。
 
 ## 持仓腿编辑
 
