@@ -98,7 +98,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：强烈看跌当日 + 愿意付 debit 赌方向。
     
-    **风险**：max loss = 付出的权利金；max profit = CENTER × 100（理论上 SPX 跌到 0）。
+    **风险**：max loss = 付出的权利金；max profit = (CENTER − 付出的权利金) × 100（理论上 SPX 跌到 0）。
     
     **breakeven**：CENTER - 入场价
   </Card>
@@ -174,7 +174,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     
     **何时用**：判断 SPX 当日**钉死在 CENTER 附近** → credit 比铁鹰高（收双边 ATM 权利金），但 max profit 只有一个尖点。
     
-    **到期形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；任何偏离都立即开始亏损。
+    **到期形状**：**单尖三角**——只有 SPX 收盘恰好等于 CENTER 才能拿到 max profit；偏离 CENTER 后利润线性递减，越过 breakeven（CENTER ± credit）才转为亏损，max loss 在翼外。
     
     **breakeven**：CENTER ± credit
   </Card>
@@ -207,7 +207,7 @@ Replay Lab 内置了 **8 个常用 0DTE 策略模板**——你不用手动一�
     <Frame>
       <img src="/images/replay-lab/payoff-butterfly.png" alt="铁蝶到期结构：strikes 7420/7425/7425/7430，只有 7425 一个点是 max profit = +$370" />
     </Frame>
-    只有 CENTER 一个点能拿满 max profit。偏离 1 美元就开始亏。
+    只有 CENTER 一个点能拿满 max profit。偏离 1 美元利润就少一截，但要越过 breakeven（CENTER ± credit）才开始亏。
   </Card>
 </CardGroup>
 
